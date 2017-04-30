@@ -13,7 +13,7 @@ SET awk_exe=%msys_dir%\usr\bin\awk.exe
 SET sed_exe=%msys_dir%\usr\bin\sed.exe
 
 REM read the version values from version.txt
-FOR /f %%i IN ('%awk_exe% "/APP_NAME/ {print $2}" %WORKSPACE%\version.txt') DO SET APP_NAME=%%i
+FOR /f %%i IN ('%awk_exe% "/APP_NAME/ {print tolower($2)}" %WORKSPACE%\version.txt') DO SET APP_NAME=%%i
 
 CLS
 COLOR 1B
