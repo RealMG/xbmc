@@ -34,16 +34,17 @@
 #include "ServiceBroker.h"
 
 // To check for button mapping support
-#include "dialogs/GUIDialogOK.h"
+#include "messaging/helpers/DialogOKHelper.h"
 #include "peripherals/bus/virtual/PeripheralBusAddon.h"
 #include "peripherals/Peripherals.h"
 #include "utils/log.h"
 
 // To check for installable controllers
 #include "addons/AddonDatabase.h"
-#include "addons/AddonManager.h"
 
+using namespace KODI;
 using namespace GAME;
+using namespace KODI::MESSAGING;
 
 CGUIControllerWindow::CGUIControllerWindow(void) :
   CGUIDialog(WINDOW_DIALOG_GAME_CONTROLLERS, "DialogGameControllers.xml"),
@@ -234,16 +235,11 @@ void CGUIControllerWindow::OnInitWindow(void)
   // Enable button mapping support
   CServiceBroker::GetPeripherals().EnableButtonMapping();
 
-  // FIXME: not thread safe
-//  ADDON::CRepositoryUpdater::GetInstance().Events().Subscribe(this, &CGUIControllerWindow::OnEvent);
-
   UpdateButtons();
 }
 
 void CGUIControllerWindow::OnDeinitWindow(int nextWindowID)
 {
-  ADDON::CRepositoryUpdater::GetInstance().Events().Unsubscribe(this);
-
   if (m_controllerList)
   {
     m_controllerList->Deinitialize();
@@ -300,7 +296,7 @@ void CGUIControllerWindow::GetMoreControllers(void)
   {
     // "Controller profiles"
     // "All available controller profiles are installed."
-    CGUIDialogOK::ShowAndGetInput(CVariant{ 35050 }, CVariant{ 35062 });
+    HELPERS::ShowOKDialogText(CVariant{ 35050 }, CVariant{ 35062 });
     return;
   }
 }
@@ -315,7 +311,7 @@ void CGUIControllerWindow::ShowHelp(void)
 {
   // "Help"
   // <help text>
-  CGUIDialogOK::ShowAndGetInput(CVariant{10043}, CVariant{35055});
+  HELPERS::ShowOKDialogText(CVariant{10043}, CVariant{35055});
 }
 
 void CGUIControllerWindow::ShowButtonCaptureDialog(void)

@@ -20,17 +20,17 @@
 
 #include "PVRTimers.h"
 
-#include <cassert>
 #include <cstdlib>
 #include <utility>
 
-#include "ServiceBroker.h"
 #include "FileItem.h"
+#include "ServiceBroker.h"
+#include "guilib/LocalizeStrings.h"
 #include "settings/Settings.h"
 #include "threads/SingleLock.h"
-#include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
+#include "utils/log.h"
 
 #include "pvr/PVRJobs.h"
 #include "pvr/PVRManager.h"
@@ -81,7 +81,7 @@ void CPVRTimersContainer::InsertTimer(const CPVRTimerInfoTagPtr &newTimer)
   }
   else
   {
-    it->second.emplace_back(newTimer);;
+    it->second.emplace_back(newTimer);
   }
 }
 
@@ -655,7 +655,7 @@ bool CPVRTimers::DeleteTimersOnChannel(const CPVRChannelPtr &channel, bool bDele
       {
         bool bDeleteActiveItem = !bCurrentlyActiveOnly || (*timerIt)->IsRecording();
         bool bDeleteTimerRuleItem = bDeleteTimerRules || !(*timerIt)->IsTimerRule();
-        bool bChannelsMatch = (*timerIt)->ChannelTag() == channel;
+        bool bChannelsMatch = (*timerIt)->HasChannel() && (*timerIt)->Channel() == channel;
 
         if (bDeleteActiveItem && bDeleteTimerRuleItem && bChannelsMatch)
         {
@@ -768,7 +768,7 @@ CPVRTimerInfoTagPtr CPVRTimers::GetTimerForEpgTag(const CPVREpgInfoTagPtr &epgTa
       return timer;
 
     // try to find a matching timer for the tag.
-    const CPVRChannelPtr channel(epgTag->ChannelTag());
+    const CPVRChannelPtr channel(epgTag->Channel());
     if (channel)
     {
       CSingleLock lock(m_critSection);
@@ -786,8 +786,8 @@ CPVRTimerInfoTagPtr CPVRTimers::GetTimerForEpgTag(const CPVREpgInfoTagPtr &epgTa
           if (timersEntry->m_iClientChannelUid != PVR_CHANNEL_INVALID_UID &&
               timersEntry->m_iClientChannelUid == channel->UniqueID())
           {
-            if (timersEntry->m_iEpgUid != EPG_TAG_INVALID_UID &&
-                timersEntry->m_iEpgUid == epgTag->UniqueBroadcastID())
+            if (timersEntry->UniqueBroadcastID() != EPG_TAG_INVALID_UID &&
+                timersEntry->UniqueBroadcastID() == epgTag->UniqueBroadcastID())
               return timersEntry;
 
             if (timersEntry->m_bIsRadio == channel->IsRadio() &&
@@ -805,6 +805,11 @@ CPVRTimerInfoTagPtr CPVRTimers::GetTimerForEpgTag(const CPVREpgInfoTagPtr &epgTa
 
 bool CPVRTimers::HasRecordingTimerForRecording(const CPVRRecording &recording) const
 {
+  return GetRecordingTimerForRecording(recording) != nullptr;
+}
+
+CPVRTimerInfoTagPtr CPVRTimers::GetRecordingTimerForRecording(const CPVRRecording &recording) const
+{
   CSingleLock lock(m_critSection);
 
   for (const auto &tagsEntry : m_tags)
@@ -814,16 +819,16 @@ bool CPVRTimers::HasRecordingTimerForRecording(const CPVRRecording &recording) c
       if (timersEntry->IsRecording() &&
           !timersEntry->IsTimerRule() &&
           timersEntry->m_iClientId == recording.ClientID() &&
-          timersEntry->ChannelTag()->UniqueID() == recording.ChannelUid() &&
+          timersEntry->m_iClientChannelUid == recording.ChannelUid() &&
           timersEntry->StartAsUTC() <= recording.RecordingTimeAsUTC() &&
           timersEntry->EndAsUTC() >= recording.EndTimeAsUTC())
       {
-        return true;
+        return timersEntry;
       }
     }
   }
 
-  return false;
+  return CPVRTimerInfoTagPtr();
 }
 
 CPVRTimerInfoTagPtr CPVRTimers::GetTimerRule(const CPVRTimerInfoTagPtr &timer) const

@@ -23,8 +23,7 @@
 #include "video/VideoDatabase.h"
 
 #include "pvr/PVRSettings.h"
-
-#include "GUIWindowPVRBase.h"
+#include "pvr/windows/GUIWindowPVRBase.h"
 
 namespace PVR
 {
@@ -32,7 +31,7 @@ namespace PVR
   {
   public:
     CGUIWindowPVRRecordingsBase(bool bRadio, int id, const std::string &xmlFile);
-    virtual ~CGUIWindowPVRRecordingsBase();
+    ~CGUIWindowPVRRecordingsBase() override;
 
     void OnWindowLoaded() override;
     bool OnMessage(CGUIMessage& message) override;

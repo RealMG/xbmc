@@ -19,12 +19,12 @@
  */
 
 #include "GameLoop.h"
-#include "games/addons/GameClient.h"
 #include "threads/SingleLock.h"
 #include "threads/SystemClock.h"
 
 #include <cmath>
 
+using namespace KODI;
 using namespace GAME;
 
 #define DEFAULT_FPS  60  // In case fps is 0 (shouldn't happen)

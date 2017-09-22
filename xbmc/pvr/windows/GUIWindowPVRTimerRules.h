@@ -19,9 +19,9 @@
  *
  */
 
-#include "GUIWindowPVRTimersBase.h"
-
 #include <string>
+
+#include "pvr/windows/GUIWindowPVRTimersBase.h"
 
 namespace PVR
 {
@@ -29,7 +29,7 @@ namespace PVR
   {
   public:
     CGUIWindowPVRTVTimerRules();
-    virtual ~CGUIWindowPVRTVTimerRules() {};
+    ~CGUIWindowPVRTVTimerRules() override = default;
 
   protected:
     std::string GetDirectoryPath() override;
@@ -39,7 +39,7 @@ namespace PVR
   {
   public:
     CGUIWindowPVRRadioTimerRules();
-    virtual ~CGUIWindowPVRRadioTimerRules() {};
+    ~CGUIWindowPVRRadioTimerRules() override = default;
 
   protected:
     std::string GetDirectoryPath() override;

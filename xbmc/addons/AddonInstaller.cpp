@@ -34,6 +34,7 @@
 #include "settings/Settings.h"
 #include "messaging/ApplicationMessenger.h"
 #include "messaging/helpers/DialogHelper.h"
+#include "messaging/helpers/DialogOKHelper.h"
 #include "favourites/FavouritesService.h"
 #include "FilesystemInstaller.h"
 #include "utils/JobManager.h"
@@ -42,7 +43,6 @@
 #include "guilib/GUIWindowManager.h"      // for callback
 #include "GUIUserMessages.h"              // for callback
 #include "utils/StringUtils.h"
-#include "dialogs/GUIDialogOK.h"
 #include "dialogs/GUIDialogExtendedProgressBar.h"
 #include "URL.h"
 #ifdef TARGET_POSIX
@@ -68,8 +68,7 @@ struct find_map : public std::binary_function<CAddonInstaller::JobMap::value_typ
 CAddonInstaller::CAddonInstaller() : m_idle(true)
 { }
 
-CAddonInstaller::~CAddonInstaller()
-{ }
+CAddonInstaller::~CAddonInstaller() = default;
 
 CAddonInstaller &CAddonInstaller::GetInstance()
 {
@@ -810,7 +809,7 @@ void CAddonInstallJob::ReportInstallError(const std::string& addonID, const std:
 
     activity = EventPtr(new CAddonManagementEvent(addon, EventLevel::Error, msg));
     if (IsModal())
-      CGUIDialogOK::ShowAndGetInput(CVariant{m_addon->Name()}, CVariant{msg});
+      HELPERS::ShowOKDialogText(CVariant{m_addon->Name()}, CVariant{msg});
   }
   else
   {
@@ -819,7 +818,7 @@ void CAddonInstallJob::ReportInstallError(const std::string& addonID, const std:
         EventLevel::Error));
 
     if (IsModal())
-      CGUIDialogOK::ShowAndGetInput(CVariant{fileName}, CVariant{msg});
+      HELPERS::ShowOKDialogText(CVariant{fileName}, CVariant{msg});
   }
 
   CEventLog::GetInstance().Add(activity, !IsModal(), false);

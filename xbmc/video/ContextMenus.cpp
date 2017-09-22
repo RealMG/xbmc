@@ -49,15 +49,32 @@ bool CVideoInfo::Execute(const CFileItemPtr& item) const
   return true;
 }
 
+bool CRemoveResumePoint::IsVisible(const CFileItem& itemIn) const
+{
+  CFileItem item(itemIn.GetItemToPlay());
+  if (item.IsDeleted()) // e.g. trashed pvr recording
+    return false;
+
+  return CGUIWindowVideoBase::HasResumeItemOffset(&item);
+}
+
+bool CRemoveResumePoint::Execute(const CFileItemPtr& item) const
+{
+  CVideoLibraryQueue::GetInstance().ResetResumePoint(item);
+  return true;
+}
+
 bool CMarkWatched::IsVisible(const CFileItem& item) const
 {
   if (item.IsDeleted()) // e.g. trashed pvr recording
     return false;
 
-  if (item.m_bIsFolder) //Only allow db content and recording folders to be updated recursively
+  if (item.m_bIsFolder) // Only allow video db content, video and recording folders to be updated recursively
   {
     if (item.HasVideoInfoTag())
       return item.IsVideoDb();
+    else if (item.GetProperty("IsVideoFolder").asBoolean())
+      return true;
     else
       return CUtil::IsTVRecording(item.GetPath());
   }
@@ -78,10 +95,12 @@ bool CMarkUnWatched::IsVisible(const CFileItem& item) const
   if (item.IsDeleted()) // e.g. trashed pvr recording
     return false;
 
-  if (item.m_bIsFolder) //Only allow db content and recording folders to be updated recursively
+  if (item.m_bIsFolder) // Only allow video db content, video and recording folders to be updated recursively
   {
     if (item.HasVideoInfoTag())
       return item.IsVideoDb();
+    else if (item.GetProperty("IsVideoFolder").asBoolean())
+      return true;
     else
       return CUtil::IsTVRecording(item.GetPath());
   }
@@ -123,7 +142,7 @@ static void SetPathAndPlay(CFileItem& item)
   if (item.IsLiveTV()) // pvr tv or pvr radio?
     g_application.PlayMedia(item, "", PLAYLIST_NONE);
   else
-    g_playlistPlayer.Play(std::make_shared<CFileItem>(item), "");
+    CServiceBroker::GetPlaylistPlayer().Play(std::make_shared<CFileItem>(item), "");
 }
 
 bool CResume::Execute(const CFileItemPtr& itemIn) const

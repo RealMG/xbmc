@@ -37,7 +37,6 @@
 #include "network/Network.h"
 #include "guilib/GUIWindowManager.h"
 #include "input/Key.h"
-#include "dialogs/GUIDialogOK.h"
 #include "dialogs/GUIDialogYesNo.h"
 #include "guilib/GUIKeyboardFactory.h"
 #include "dialogs/GUIDialogProgress.h"
@@ -50,6 +49,7 @@
 #include "settings/Settings.h"
 #include "input/InputManager.h"
 #include "guilib/LocalizeStrings.h"
+#include "messaging/helpers/DialogOKHelper.h"
 #include "utils/StringUtils.h"
 #include "utils/log.h"
 #include "utils/JobManager.h"
@@ -294,7 +294,7 @@ bool CGUIWindowFileManager::OnMessage(CGUIMessage& message)
         if (iAction == ACTION_HIGHLIGHT_ITEM || iAction == ACTION_MOUSE_LEFT_CLICK)
         {
           OnMark(list, iItem);
-          if (!CInputManager::GetInstance().IsMouseActive())
+          if (!CServiceBroker::GetInputManager().IsMouseActive())
           {
             //move to next item
             CGUIMessage msg(GUI_MSG_ITEM_SELECT, GetID(), iControl, iItem + 1);
@@ -615,7 +615,7 @@ void CGUIWindowFileManager::OnStart(CFileItem *pItem, const std::string &player)
     {
       if (!pPlayList->Load(strPlayList))
       {
-        CGUIDialogOK::ShowAndGetInput(CVariant{6}, CVariant{477});
+        HELPERS::ShowOKDialogText(CVariant{6}, CVariant{477});
         return;
       }
     }
@@ -624,7 +624,7 @@ void CGUIWindowFileManager::OnStart(CFileItem *pItem, const std::string &player)
   }
   if (pItem->IsAudio() || pItem->IsVideo())
   {
-    g_playlistPlayer.Play(std::make_shared<CFileItem>(*pItem), player);
+    CServiceBroker::GetPlaylistPlayer().Play(std::make_shared<CFileItem>(*pItem), player);
     return;
   }
   if (pItem->IsGame())
@@ -661,7 +661,7 @@ bool CGUIWindowFileManager::HaveDiscOrConnection( std::string& strPath, int iDri
   {
     if ( !g_mediaManager.IsDiscInDrive(strPath) )
     {
-      CGUIDialogOK::ShowAndGetInput(CVariant{218}, CVariant{219});
+      HELPERS::ShowOKDialogText(CVariant{218}, CVariant{219});
       int iList = GetFocusedList();
       int iItem = GetSelectedItem(iList);
       Update(iList, "");
@@ -674,7 +674,7 @@ bool CGUIWindowFileManager::HaveDiscOrConnection( std::string& strPath, int iDri
     //! @todo Handle not connected to a remote share
     if ( !g_application.getNetwork().IsConnected() )
     {
-      CGUIDialogOK::ShowAndGetInput(CVariant{220}, CVariant{221});
+      HELPERS::ShowOKDialogText(CVariant{220}, CVariant{221});
       return false;
     }
   }
@@ -1161,8 +1161,8 @@ void CGUIWindowFileManager::OnJobComplete(unsigned int jobID, bool success, CJob
 {
   if(!success)
   {
-    CFileOperationJob* fileJob = (CFileOperationJob*)job;
-    CGUIDialogOK::ShowAndGetInput(CVariant{fileJob->GetHeading()},
+    CFileOperationJob* fileJob = static_cast<CFileOperationJob*>(job);
+    HELPERS::ShowOKDialogLines(CVariant{fileJob->GetHeading()},
                                   CVariant{fileJob->GetLine()}, CVariant{16200}, CVariant{0});
   }
 
@@ -1187,7 +1187,7 @@ void CGUIWindowFileManager::ShowShareErrorMessage(CFileItem* pItem)
   else
     idMessageText = 15300; // Path not found or invalid
 
-  CGUIDialogOK::ShowAndGetInput(CVariant{220}, CVariant{idMessageText});
+  HELPERS::ShowOKDialogText(CVariant{220}, CVariant{idMessageText});
 }
 
 void CGUIWindowFileManager::OnInitWindow()

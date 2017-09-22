@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <memory>
 
 #include <android/native_activity.h>
 
@@ -41,6 +42,8 @@
 #include "IActivityHandler.h"
 #include "IInputHandler.h"
 #include "JNIMainActivity.h"
+#include "JNIXBMCAudioManagerOnAudioFocusChangeListener.h"
+#include "JNIXBMCMediaSession.h"
 #include "platform/xbmc.h"
 
 // forward declares
@@ -69,8 +72,8 @@ struct androidPackage
 class CActivityResultEvent : public CEvent
 {
 public:
-  CActivityResultEvent(int requestcode)
-    : m_requestcode(requestcode)
+  explicit CActivityResultEvent(int requestcode)
+    : m_requestcode(requestcode), m_resultcode(0)
   {}
   int GetRequestCode() const { return m_requestcode; }
   int GetResultCode() const { return m_resultcode; }
@@ -88,23 +91,23 @@ class CXBMCApp
     : public IActivityHandler
     , public CJNIMainActivity
     , public CJNIBroadcastReceiver
-    , public CJNIAudioManagerAudioFocusChangeListener
     , public ANNOUNCEMENT::IAnnouncer
 {
 public:
-  CXBMCApp(ANativeActivity *nativeActivity);
+  explicit CXBMCApp(ANativeActivity *nativeActivity);
   virtual ~CXBMCApp();
+  static CXBMCApp* get() { return m_xbmcappinstance; }
 
   // IAnnouncer IF
-  virtual void Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data);
+  virtual void Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data) override;
 
-  virtual void onReceive(CJNIIntent intent);
-  virtual void onNewIntent(CJNIIntent intent);
-  virtual void onActivityResult(int requestCode, int resultCode, CJNIIntent resultData);
-  virtual void onVolumeChanged(int volume);
+  virtual void onReceive(CJNIIntent intent) override;
+  virtual void onNewIntent(CJNIIntent intent) override;
+  virtual void onActivityResult(int requestCode, int resultCode, CJNIIntent resultData) override;
+  virtual void onVolumeChanged(int volume) override;
   virtual void onAudioFocusChange(int focusChange);
-  virtual void doFrame(int64_t frameTimeNanos);
-  virtual void onVisibleBehindCanceled() {}
+  virtual void doFrame(int64_t frameTimeNanos) override;
+  virtual void onVisibleBehindCanceled() override;
   
   // implementation of CJNIInputManagerInputDeviceListener
   void onInputDeviceAdded(int deviceId) override;
@@ -113,26 +116,26 @@ public:
 
   bool isValid() { return m_activity != NULL; }
 
-  void onStart();
-  void onResume();
-  void onPause();
-  void onStop();
-  void onDestroy();
+  void onStart() override;
+  void onResume() override;
+  void onPause() override;
+  void onStop() override;
+  void onDestroy() override;
 
-  void onSaveState(void **data, size_t *size);
-  void onConfigurationChanged();
-  void onLowMemory();
+  void onSaveState(void **data, size_t *size) override;
+  void onConfigurationChanged() override;
+  void onLowMemory() override;
 
-  void onCreateWindow(ANativeWindow* window);
-  void onResizeWindow();
-  void onDestroyWindow();
-  void onGainFocus();
-  void onLostFocus();
+  void onCreateWindow(ANativeWindow* window) override;
+  void onResizeWindow() override;
+  void onDestroyWindow() override;
+  void onGainFocus() override;
+  void onLostFocus() override;
 
   void Initialize();
   void Deinitialize();
 
-  static const ANativeWindow** GetNativeWindow(int timeout);
+  static ANativeWindow* GetNativeWindow(int timeout);
   static int SetBuffersGeometry(int width, int height, int format);
   static int android_printf(const char *format, ...);
   
@@ -165,11 +168,13 @@ public:
   static int WaitForActivityResult(const CJNIIntent &intent, int requestCode, CJNIIntent& result);
 
   // Playback callbacks
-  static void OnPlayBackStarted();
-  static void OnPlayBackPaused();
-  static void OnPlayBackResumed();
-  static void OnPlayBackStopped();
-  static void OnPlayBackEnded();
+  void OnPlayBackStarted();
+  void OnPlayBackPaused();
+  void OnPlayBackStopped();
+
+  // Info callback
+  void UpdateSessionMetadata();
+  void UpdateSessionState();
 
   // input device methods
   static void RegisterInputDeviceCallbacks(IInputDeviceCallbacks* handler);
@@ -184,20 +189,27 @@ public:
   static void InitFrameCallback(CVideoSyncAndroid *syncImpl);
   static void DeinitFrameCallback();
 
+  // Application slow ping
+  void ProcessSlow();
+
   static bool WaitVSync(unsigned int milliSeconds);
 
-  static CXBMCApp* get() { return m_xbmcappinstance; }
+  bool getVideosurfaceInUse();
+  void setVideosurfaceInUse(bool videosurfaceInUse);
 
 protected:
   // limit who can access Volume
   friend class CAESinkAUDIOTRACK;
 
   static int GetMaxSystemVolume(JNIEnv *env);
-  static bool AcquireAudioFocus();
-  static bool ReleaseAudioFocus();
+  bool AcquireAudioFocus();
+  bool ReleaseAudioFocus();
+  static void RequestVisibleBehind(bool requested);
 
 private:
   static CXBMCApp* m_xbmcappinstance;
+  CJNIXBMCAudioManagerOnAudioFocusChangeListener m_audioFocusListener;
+  std::unique_ptr<jni::CJNIXBMCMediaSession> m_mediaSession;
   static bool HasLaunchIntent(const std::string &package);
   std::string GetFilenameFromIntent(const CJNIIntent &intent);
   void run();
@@ -212,6 +224,8 @@ private:
   static bool m_headsetPlugged;
   static IInputDeviceCallbacks* m_inputDeviceCallbacks;
   static IInputDeviceEventHandler* m_inputDeviceEventHandler;
+  static bool m_hasReqVisible;
+  bool m_videosurfaceInUse;
   bool m_firstrun;
   bool m_exiting;
   pthread_t m_thread;
@@ -229,4 +243,6 @@ private:
   void XBMC_Stop();
   bool XBMC_DestroyDisplay();
   bool XBMC_SetupDisplay();
+
+  static uint32_t m_playback_state;
 };

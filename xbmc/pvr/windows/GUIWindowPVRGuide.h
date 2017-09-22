@@ -21,12 +21,12 @@
 
 #include <atomic>
 #include <memory>
+
 #include "threads/Event.h"
 #include "threads/Thread.h"
-#include "pvr/PVRChannelNumberInputHandler.h"
-#include "GUIWindowPVRBase.h"
 
-class CSetting;
+#include "pvr/PVRChannelNumberInputHandler.h"
+#include "pvr/windows/GUIWindowPVRBase.h"
 
 namespace PVR
 {
@@ -37,7 +37,7 @@ namespace PVR
   {
   public:
     CGUIWindowPVRGuideBase(bool bRadio, int id, const std::string &xmlFile);
-    virtual ~CGUIWindowPVRGuideBase();
+    ~CGUIWindowPVRGuideBase() override;
 
     void OnInitWindow() override;
     void OnDeinitWindow(int nextWindowID) override;
@@ -100,10 +100,10 @@ namespace PVR
   class CPVRRefreshTimelineItemsThread : public CThread
   {
   public:
-    CPVRRefreshTimelineItemsThread(CGUIWindowPVRGuideBase *pGuideWindow);
-    virtual ~CPVRRefreshTimelineItemsThread();
+    explicit CPVRRefreshTimelineItemsThread(CGUIWindowPVRGuideBase *pGuideWindow);
+    ~CPVRRefreshTimelineItemsThread() override;
 
-    virtual void Process();
+    void Process() override;
 
     void DoRefresh();
     void Stop();

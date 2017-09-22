@@ -41,10 +41,10 @@
 #include "filesystem/VideoDatabaseDirectory.h"
 #include "PartyModeManager.h"
 #include "guilib/GUIWindowManager.h"
-#include "dialogs/GUIDialogOK.h"
 #include "dialogs/GUIDialogSelect.h"
 #include "guilib/GUIKeyboardFactory.h"
 #include "filesystem/Directory.h"
+#include "messaging/helpers/DialogOKHelper.h"
 #include "playlists/PlayList.h"
 #include "profiles/ProfilesManager.h"
 #include "settings/Settings.h"
@@ -57,9 +57,6 @@
 #include "utils/log.h"
 #include "utils/FileUtils.h"
 #include "utils/Variant.h"
-#include "pvr/PVRManager.h"
-#include "pvr/recordings/PVRRecordings.h"
-#include "pvr/recordings/PVRRecordingsPath.h"
 #include "utils/URIUtils.h"
 #include "GUIUserMessages.h"
 #include "storage/MediaManager.h"
@@ -74,6 +71,7 @@ using namespace VIDEODATABASEDIRECTORY;
 using namespace VIDEO;
 using namespace ADDON;
 using namespace PVR;
+using namespace KODI::MESSAGING;
 
 #define CONTROL_BTNVIEWASICONS     2
 #define CONTROL_BTNSORTBY          3
@@ -93,9 +91,7 @@ CGUIWindowVideoBase::CGUIWindowVideoBase(int id, const std::string &xmlFile)
   m_dlgProgress = NULL;
 }
 
-CGUIWindowVideoBase::~CGUIWindowVideoBase()
-{
-}
+CGUIWindowVideoBase::~CGUIWindowVideoBase() = default;
 
 bool CGUIWindowVideoBase::OnAction(const CAction &action)
 {
@@ -103,8 +99,8 @@ bool CGUIWindowVideoBase::OnAction(const CAction &action)
     return OnContextButton(m_viewControl.GetSelectedItem(),CONTEXT_BUTTON_SCAN);
   else if (action.GetID() == ACTION_SHOW_PLAYLIST)
   {
-    if (g_playlistPlayer.GetCurrentPlaylist() == PLAYLIST_VIDEO ||
-        g_playlistPlayer.GetPlaylist(PLAYLIST_VIDEO).size() > 0)
+    if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() == PLAYLIST_VIDEO ||
+        CServiceBroker::GetPlaylistPlayer().GetPlaylist(PLAYLIST_VIDEO).size() > 0)
     {
       g_windowManager.ActivateWindow(WINDOW_VIDEO_PLAYLIST);
       return true;
@@ -247,7 +243,7 @@ void CGUIWindowVideoBase::OnItemInfo(const CFileItem& fileItem, ADDON::ScraperPt
       // no video file in this folder
       if (!bFoundFile)
       {
-        CGUIDialogOK::ShowAndGetInput(CVariant{13346}, CVariant{20349});
+        HELPERS::ShowOKDialogText(CVariant{13346}, CVariant{20349});
         return;
       }
     }
@@ -395,7 +391,7 @@ bool CGUIWindowVideoBase::ShowIMDB(CFileItemPtr item, const ScraperPtr &info2, b
 
   if (g_application.IsVideoScanning())
   {
-    CGUIDialogOK::ShowAndGetInput(CVariant{13346}, CVariant{14057});
+    HELPERS::ShowOKDialogText(CVariant{13346}, CVariant{14057});
     return false;
   }
 
@@ -424,7 +420,7 @@ bool CGUIWindowVideoBase::ShowIMDB(CFileItemPtr item, const ScraperPtr &info2, b
 void CGUIWindowVideoBase::OnQueueItem(int iItem)
 {
   // Determine the proper list to queue this element
-  int playlist = g_playlistPlayer.GetCurrentPlaylist();
+  int playlist = CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist();
   if (playlist == PLAYLIST_NONE)
     playlist = g_application.m_pPlayer->GetPreferredPlaylist();
   if (playlist == PLAYLIST_NONE)
@@ -452,8 +448,8 @@ void CGUIWindowVideoBase::OnQueueItem(int iItem)
     return;
   }
 
-  g_playlistPlayer.Add(playlist, queuedItems);
-  g_playlistPlayer.SetCurrentPlaylist(playlist);
+  CServiceBroker::GetPlaylistPlayer().Add(playlist, queuedItems);
+  CServiceBroker::GetPlaylistPlayer().SetCurrentPlaylist(playlist);
   // video does not auto play on queue like music
   m_viewControl.SetSelectedItem(iItem + 1);
 }
@@ -523,7 +519,7 @@ void CGUIWindowVideoBase::AddItemToPlayList(const CFileItemPtr &pItem, CFileItem
         // load it
         if (!pPlayList->Load(pItem->GetPath()))
         {
-          CGUIDialogOK::ShowAndGetInput(CVariant{6}, CVariant{477});
+          HELPERS::ShowOKDialogText(CVariant{6}, CVariant{477});
           return; //hmmm unable to load playlist?
         }
 
@@ -1081,8 +1077,8 @@ bool CGUIWindowVideoBase::OnPlayMedia(int iItem, const std::string &player)
 
   // Reset Playlistplayer, playback started now does
   // not use the playlistplayer.
-  g_playlistPlayer.Reset();
-  g_playlistPlayer.SetCurrentPlaylist(PLAYLIST_NONE);
+  CServiceBroker::GetPlaylistPlayer().Reset();
+  CServiceBroker::GetPlaylistPlayer().SetCurrentPlaylist(PLAYLIST_NONE);
 
   CFileItem item(*pItem);
   if (pItem->IsVideoDb())
@@ -1091,72 +1087,6 @@ bool CGUIWindowVideoBase::OnPlayMedia(int iItem, const std::string &player)
     item.SetProperty("original_listitem_url", pItem->GetPath());
   }
   CLog::Log(LOGDEBUG, "%s %s", __FUNCTION__, CURL::GetRedacted(item.GetPath()).c_str());
-
-
-  //! @todo delete entire block in v18
-  //! @deprecated m_strStreamURL is deprecated in v17
-  if (item.IsPVR())
-  {
-    CPVRRecordingsPath path(item.GetPath());
-    if (path.IsValid() && path.IsActive())
-    {
-      if (!CServiceBroker::GetPVRManager().IsStarted())
-        return false;
-
-      /* For recordings we check here for a available stream URL */
-      CFileItemPtr tag = CServiceBroker::GetPVRManager().Recordings()->GetByPath(item.GetPath());
-      if (tag && tag->HasPVRRecordingInfoTag() && !tag->GetPVRRecordingInfoTag()->m_strStreamURL.empty())
-      {
-        std::string stream = tag->GetPVRRecordingInfoTag()->m_strStreamURL;
-
-        /* Isolate the folder from the filename */
-        size_t found = stream.find_last_of("/");
-        if (found == std::string::npos)
-          found = stream.find_last_of("\\");
-
-        if (found != std::string::npos)
-        {
-          /* Check here for asterix at the begin of the filename */
-          if (stream[found+1] == '*')
-          {
-            /* Create a "stack://" url with all files matching the extension */
-            std::string ext = URIUtils::GetExtension(stream);
-            std::string dir = stream.substr(0, found).c_str();
-
-            CFileItemList items;
-            CDirectory::GetDirectory(dir, items);
-            items.Sort(SortByFile, SortOrderAscending);
-
-            std::vector<int> stack;
-            for (int i = 0; i < items.Size(); ++i)
-            {
-              if (URIUtils::HasExtension(items[i]->GetPath(), ext))
-                stack.push_back(i);
-            }
-
-            if (stack.size() > 0)
-            {
-              /* If we have a stack change the path of the item to it */
-              CStackDirectory dir;
-              std::string stackPath = dir.ConstructStackPath(items, stack);
-              item.SetPath(stackPath);
-            }
-          }
-          else
-          {
-            /* If no asterix is present play only the given stream URL */
-            item.SetPath(stream);
-          }
-        }
-        else
-        {
-          CLog::Log(LOGERROR, "CGUIWindowTV: Can't open recording, no valid filename!");
-          CGUIDialogOK::ShowAndGetInput(CVariant{19033}, CVariant{19036});
-          return false;
-        }
-      }
-    }
-  }
 
   PlayMovie(&item, player);
 
@@ -1167,8 +1097,8 @@ bool CGUIWindowVideoBase::OnPlayAndQueueMedia(const CFileItemPtr &item, std::str
 {
   // Get the current playlist and make sure it is not shuffled
   int iPlaylist = m_guiState->GetPlaylist();
-  if (iPlaylist != PLAYLIST_NONE && g_playlistPlayer.IsShuffled(iPlaylist))
-     g_playlistPlayer.SetShuffle(iPlaylist, false);
+  if (iPlaylist != PLAYLIST_NONE && CServiceBroker::GetPlaylistPlayer().IsShuffled(iPlaylist))
+     CServiceBroker::GetPlaylistPlayer().SetShuffle(iPlaylist, false);
 
   CFileItemPtr movieItem(new CFileItem(*item));
 
@@ -1182,7 +1112,7 @@ void CGUIWindowVideoBase::PlayMovie(const CFileItem *item, const std::string &pl
   if(m_thumbLoader.IsLoading())
     m_thumbLoader.StopAsync();
 
-  g_playlistPlayer.Play(std::make_shared<CFileItem>(*item), player);
+  CServiceBroker::GetPlaylistPlayer().Play(std::make_shared<CFileItem>(*item), player);
 
   if(!g_application.m_pPlayer->IsPlayingVideo())
     m_thumbLoader.Load(*m_vecItems);
@@ -1231,7 +1161,7 @@ void CGUIWindowVideoBase::LoadPlayList(const std::string& strPlayList, int iPlay
     // load it
     if (!pPlayList->Load(strPlayList))
     {
-      CGUIDialogOK::ShowAndGetInput(CVariant{6}, CVariant{477});
+      HELPERS::ShowOKDialogText(CVariant{6}, CVariant{477});
       return; //hmmm unable to load playlist?
     }
   }
@@ -1269,11 +1199,11 @@ void CGUIWindowVideoBase::PlayItem(int iItem, const std::string &player)
     CFileItemList queuedItems;
     AddItemToPlayList(item, queuedItems);
 
-    g_playlistPlayer.ClearPlaylist(PLAYLIST_VIDEO);
-    g_playlistPlayer.Reset();
-    g_playlistPlayer.Add(PLAYLIST_VIDEO, queuedItems);
-    g_playlistPlayer.SetCurrentPlaylist(PLAYLIST_VIDEO);
-    g_playlistPlayer.Play();
+    CServiceBroker::GetPlaylistPlayer().ClearPlaylist(PLAYLIST_VIDEO);
+    CServiceBroker::GetPlaylistPlayer().Reset();
+    CServiceBroker::GetPlaylistPlayer().Add(PLAYLIST_VIDEO, queuedItems);
+    CServiceBroker::GetPlaylistPlayer().SetCurrentPlaylist(PLAYLIST_VIDEO);
+    CServiceBroker::GetPlaylistPlayer().Play();
   }
   else if (pItem->IsPlayList())
   {
@@ -1467,7 +1397,7 @@ void CGUIWindowVideoBase::AddToDatabase(int iItem)
   m_database.Close();
 
   // done...
-  CGUIDialogOK::ShowAndGetInput(CVariant{20177}, CVariant{movie.m_strTitle},
+  HELPERS::ShowOKDialogLines(CVariant{20177}, CVariant{movie.m_strTitle},
                                 CVariant{StringUtils::Join(movie.m_genre, g_advancedSettings.m_videoItemSeparator)},
                                 CVariant{movie.GetUniqueID()});
 
@@ -1520,7 +1450,7 @@ void CGUIWindowVideoBase::OnSearch()
   }
   else
   {
-    CGUIDialogOK::ShowAndGetInput(CVariant{194}, CVariant{284});
+    HELPERS::ShowOKDialogText(CVariant{194}, CVariant{284});
   }
 }
 

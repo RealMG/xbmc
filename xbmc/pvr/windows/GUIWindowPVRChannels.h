@@ -20,8 +20,7 @@
  */
 
 #include "pvr/PVRChannelNumberInputHandler.h"
-
-#include "GUIWindowPVRBase.h"
+#include "pvr/windows/GUIWindowPVRBase.h"
 
 namespace PVR
 {
@@ -29,7 +28,7 @@ namespace PVR
   {
   public:
     CGUIWindowPVRChannelsBase(bool bRadio, int id, const std::string &xmlFile);
-    virtual ~CGUIWindowPVRChannelsBase();
+    ~CGUIWindowPVRChannelsBase() override;
 
     bool OnMessage(CGUIMessage& message) override;
     void GetContextButtons(int itemNumber, CContextButtons &buttons) override;
