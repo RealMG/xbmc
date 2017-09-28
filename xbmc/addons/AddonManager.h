@@ -72,13 +72,12 @@ namespace ADDON
   class CAddonMgr
   {
   public:
-    static CAddonMgr &GetInstance();
     bool ReInit() { DeInit(); return Init(); }
     bool Init();
     void DeInit();
 
     CAddonMgr();
-    CAddonMgr(const CAddonMgr&);
+    CAddonMgr(const CAddonMgr&) = delete;
     virtual ~CAddonMgr();
 
     CEventStream<AddonEvent>& Events() { return m_events; }
@@ -172,7 +171,7 @@ namespace ADDON
      *
      * Unload addon from the system. Returns true if it was unloaded, otherwise false.
      */
-    bool UnloadAddon(const AddonPtr& addon);
+    bool UnloadAddon(const std::string& addonId);
 
     /*!
      * @note: should only be called by AddonInstaller
