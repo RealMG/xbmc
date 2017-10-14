@@ -93,6 +93,7 @@
 #include "settings/SkinSettings.h"
 #include "guilib/LocalizeStrings.h"
 #include "utils/CPUInfo.h"
+#include "utils/FileExtensionProvider.h"
 #include "utils/log.h"
 #include "utils/SeekHandler.h"
 #include "ServiceBroker.h"
@@ -144,6 +145,7 @@
 #include "dialogs/GUIDialogSubMenu.h"
 #include "dialogs/GUIDialogButtonMenu.h"
 #include "dialogs/GUIDialogSimpleMenu.h"
+#include "dialogs/GUIDialogVolumeBar.h"
 #include "addons/settings/GUIDialogAddonSettings.h"
 
 // PVR related include Files
@@ -2544,7 +2546,7 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
       else
         pathToUrl = URIUtils::CreateArchivePath("rar", CURL(pMsg->strParam), "");
 
-      CUtil::GetRecursiveListing(pathToUrl.Get(), items, g_advancedSettings.GetPictureExtensions(), XFILE::DIR_FLAG_NO_FILE_DIRS);
+      CUtil::GetRecursiveListing(pathToUrl.Get(), items, CServiceBroker::GetFileExtensionProvider().GetPictureExtensions(), XFILE::DIR_FLAG_NO_FILE_DIRS);
       if (items.Size() > 0)
       {
         pSlideShow->Reset();
@@ -2579,7 +2581,7 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
 
     CFileItemList items;
     std::string strPath = pMsg->strParam;
-    std::string extensions = g_advancedSettings.GetPictureExtensions();
+    std::string extensions = CServiceBroker::GetFileExtensionProvider().GetPictureExtensions();
     if (pMsg->param1)
       extensions += "|.tbn";
     CUtil::GetRecursiveListing(strPath, items, extensions);
@@ -4653,8 +4655,8 @@ CFileItem& CApplication::CurrentUnstackedItem()
 
 void CApplication::ShowVolumeBar(const CAction *action)
 {
-  CGUIDialog *volumeBar = g_windowManager.GetDialog(WINDOW_DIALOG_VOLUME_BAR);
-  if (volumeBar)
+  CGUIDialogVolumeBar *volumeBar = g_windowManager.GetWindow<CGUIDialogVolumeBar>(WINDOW_DIALOG_VOLUME_BAR);
+  if (volumeBar != nullptr && volumeBar->IsVolumeBarEnabled())
   {
     volumeBar->Open();
     if (action)

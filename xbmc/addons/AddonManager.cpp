@@ -654,6 +654,12 @@ bool CAddonMgr::GetAddon(const std::string &str, AddonPtr &addon, const TYPE &ty
   return false;
 }
 
+bool CAddonMgr::HasType(const std::string &id, const TYPE &type)
+{
+  AddonPtr addon;
+  return GetAddon(id, addon, type, false);
+}
+
 bool CAddonMgr::FindAddons()
 {
   bool result = false;
@@ -686,8 +692,6 @@ bool CAddonMgr::FindAddons()
     tmp.clear();
     m_database.GetBlacklisted(tmp);
     m_updateBlacklist = std::move(tmp);
-
-    m_events.Publish(AddonEvents::InstalledChanged());
   }
 
   return result;
@@ -752,7 +756,6 @@ bool CAddonMgr::LoadAddon(const std::string& addonId)
   }
 
   m_events.Publish(AddonEvents::ReInstalled(addon->ID()));
-  m_events.Publish(AddonEvents::InstalledChanged());
   CLog::Log(LOGDEBUG, "CAddonMgr: %s successfully loaded", addon->ID().c_str());
   return true;
 }
@@ -762,7 +765,6 @@ void CAddonMgr::OnPostUnInstall(const std::string& id)
   CSingleLock lock(m_critSection);
   m_disabled.erase(id);
   m_updateBlacklist.erase(id);
-  m_events.Publish(AddonEvents::InstalledChanged());
   m_events.Publish(AddonEvents::UnInstalled(id));
 }
 
@@ -834,7 +836,6 @@ bool CAddonMgr::DisableAddon(const std::string& id)
   AddonPtr addon;
   if (GetAddon(id, addon, ADDON_UNKNOWN, false) && addon != NULL)
   {
-    ADDON::OnDisabled(addon);
     CEventLog::GetInstance().Add(EventPtr(new CAddonManagementEvent(addon, 24141)));
   }
 
@@ -863,7 +864,6 @@ bool CAddonMgr::EnableSingle(const std::string& id)
   if (!m_database.DisableAddon(id, false))
     return false;
   m_disabled.erase(id);
-  ADDON::OnEnabled(addon);
 
   CEventLog::GetInstance().Add(EventPtr(new CAddonManagementEvent(addon, 24064)));
 

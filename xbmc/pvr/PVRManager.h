@@ -40,8 +40,6 @@
 #include "pvr/epg/EpgContainer.h"
 #include "pvr/recordings/PVRRecording.h"
 
-class CGUIDialogExtendedProgressBar;
-class CGUIDialogProgressBarHandle;
 class CStopWatch;
 class CVariant;
 
@@ -479,13 +477,6 @@ namespace PVR
      */
     void PublishEvent(PVREvent state);
 
-    /*!
-     * @brief Show an extended progress bar dialog.
-     * @param strTitle the title for the dialog.
-     * @return the handle that can be used to control the progress dialog.
-     */
-    CGUIDialogProgressBarHandle* ShowProgressDialog(const std::string &strTitle) const;
-
   protected:
     /*!
      * @brief PVR update and control thread.
@@ -511,24 +502,16 @@ namespace PVR
     bool SetWakeupCommand(void);
 
     /*!
-     * @brief Show or update the progress dialog.
-     * @param strText The current status.
-     * @param iProgress The current progress in %.
-     */
-    void ShowProgressDialog(const std::string &strText, int iProgress);
-
-    /*!
-     * @brief Hide the progress dialog if it's visible.
-     */
-    void HideProgressDialog(void);
-
-    /*!
-     * @brief Load at least one client and load all other PVR data after loading the client.
-     * If some clients failed to load here, the pvrmanager will retry to load them every second.
+     * @brief Load at least one client and load all other PVR data (channelgroups, timers, recordings) after loading the client.
      * @param bShowProgress True, to show a progress dialog for the different load stages.
      * @return If at least one client and all pvr data was loaded, false otherwise.
      */
-    bool Load(bool bShowProgress);
+    bool LoadComponents(bool bShowProgress);
+
+    /*!
+     * @brief Unload all PVR data (recordings, timers, channelgroups).
+     */
+    void UnloadComponents();
 
     /*!
      * @brief Reset all properties.
@@ -588,8 +571,6 @@ namespace PVR
     CCriticalSection                m_critSection;                 /*!< critical section for all changes to this class, except for changes to triggers */
     bool                            m_bFirstStart;                 /*!< true when the PVR manager was started first, false otherwise */
     bool                            m_bEpgsCreated;                /*!< true if epg data for channels has been created */
-    CGUIDialogExtendedProgressBar * m_progressBar;                 /*!< extended progress dialog instance pointer */
-    CGUIDialogProgressBarHandle *   m_progressHandle;              /*!< progress dialog that is displayed while the pvrmanager is loading */
 
     CCriticalSection                m_managerStateMutex;
     ManagerState                    m_managerState;
