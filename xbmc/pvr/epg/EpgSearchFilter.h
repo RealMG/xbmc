@@ -1,27 +1,17 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "XBDateTime.h"
 
 #include "pvr/PVRTypes.h"
+#include "pvr/channels/PVRChannelNumber.h"
 
 class CFileItemList;
 
@@ -34,7 +24,13 @@ namespace PVR
   class CPVREpgSearchFilter
   {
   public:
-    CPVREpgSearchFilter();
+    CPVREpgSearchFilter() = delete;
+
+    /*!
+     * @brief ctor.
+     * @param bRadio the type of channels to search - if true, 'radio'. 'tv', otherwise.
+     */
+    CPVREpgSearchFilter(bool bRadio);
 
     /*!
      * @brief Clear this filter.
@@ -54,6 +50,12 @@ namespace PVR
      * @return the number of items in the list after removing duplicates.
      */
     static int RemoveDuplicates(CFileItemList &results);
+
+    /*!
+     * @brief Get the type of channels to search.
+     * @return true, if 'radio'. false, otherwise.
+     */
+    bool IsRadio() const { return m_bIsRadio; }
 
     const std::string &GetSearchTerm() const { return m_strSearchTerm; }
     void SetSearchTerm(const std::string &strSearchTerm) { m_strSearchTerm = strSearchTerm; }
@@ -89,11 +91,8 @@ namespace PVR
     bool ShouldRemoveDuplicates() const { return m_bRemoveDuplicates; }
     void SetRemoveDuplicates(bool bRemoveDuplicates) { m_bRemoveDuplicates = bRemoveDuplicates; }
 
-    bool IsRadio() const { return m_bIsRadio; }
-    void SetIsRadio(bool bIsRadio) { m_bIsRadio = bIsRadio; }
-
-    int GetChannelNumber() const { return m_iChannelNumber; }
-    void SetChannelNumber(int iChannelNumber) { m_iChannelNumber = iChannelNumber; }
+    const CPVRChannelNumber& GetChannelNumber() const { return m_channelNumber; }
+    void SetChannelNumber(const CPVRChannelNumber& channelNumber) { m_channelNumber = channelNumber; }
 
     bool IsFreeToAirOnly() const { return m_bFreeToAirOnly; }
     void SetFreeToAirOnly(bool bFreeToAirOnly) { m_bFreeToAirOnly = bFreeToAirOnly; }
@@ -134,10 +133,10 @@ namespace PVR
     CDateTime     m_endDateTime;              /*!< The maximum end time for an entry */
     bool          m_bIncludeUnknownGenres;    /*!< Include unknown genres or not */
     bool          m_bRemoveDuplicates;        /*!< True to remove duplicate events, false if not */
-    bool          m_bIsRadio;                 /*!< True to filter radio channels only, false to tv only */
+    const bool    m_bIsRadio;                 /*!< True to filter radio channels only, false to tv only */
 
     /* PVR specific filters */
-    int           m_iChannelNumber;           /*!< The channel number in the selected channel group */
+    CPVRChannelNumber  m_channelNumber;       /*!< The channel number in the selected channel group */
     bool          m_bFreeToAirOnly;           /*!< Include free to air channels only */
     int           m_iChannelGroup;            /*!< The group this channel belongs to */
     bool          m_bIgnorePresentTimers;     /*!< True to ignore currently present timers (future recordings), false if not */

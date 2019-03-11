@@ -196,6 +196,9 @@
       <play_pause mod="longpress">Enter</play_pause>
       <browser_search>VoiceRecognizer</browser_search>
       <menu>VoiceRecognizer</menu>
+      <return mod="longpress">VoiceRecognizer</return>
+      <enter mod="longpress">VoiceRecognizer</enter>
+      <play_pause>VoiceRecognizer</play_pause>
     </keyboard>
   </VirtualKeyboard>
   <TVChannels>
@@ -203,6 +206,8 @@
       <delete>Delete</delete>
       <m mod="ctrl">Move</m>
       <h>PreviousMenu</h>
+      <period mod="longpress">ChannelNumberSeparator</period>
+      <numpadperiod>ChannelNumberSeparator</numpadperiod>
     </keyboard>
   </TVChannels>
   <TVRecordings>
@@ -246,6 +251,8 @@
       <g>NextChannelGroup</g>
       <backspace mod="longpress">Number0</backspace> <!-- 0 key goes to "now" on EPG timeline -->
       <browser_back mod="longpress">Number0</browser_back> <!-- 0 key goes to "now" on EPG timeline -->
+      <period mod="longpress">ChannelNumberSeparator</period>
+      <numpadperiod>ChannelNumberSeparator</numpadperiod>
     </keyboard>
   </TVGuide>
   <RadioChannels>
@@ -253,6 +260,8 @@
       <delete>Delete</delete>
       <m mod="ctrl">Move</m>
       <j>PreviousMenu</j>
+      <period mod="longpress">ChannelNumberSeparator</period>
+      <numpadperiod>ChannelNumberSeparator</numpadperiod>
     </keyboard>
   </RadioChannels>
   <RadioRecordings>
@@ -291,6 +300,8 @@
       <t>ShowTimerRule</t>
       <backspace mod="longpress">Number0</backspace> <!-- 0 key goes to "now" on EPG timeline -->
       <browser_back mod="longpress">Number0</browser_back> <!-- 0 key goes to "now" on EPG timeline -->
+      <period mod="longpress">ChannelNumberSeparator</period>
+      <numpadperiod>ChannelNumberSeparator</numpadperiod>
     </keyboard>
   </RadioGuide>
   <FileManager>
@@ -367,6 +378,7 @@
       <escape>Fullscreen</escape>
       <c>Playlist</c>
       <v>ActivateWindow(Teletext)</v>
+      <v mod="ctrl">VideoNextStream</v>
       <text>ActivateWindow(Teletext)</text>
       <up mod="ctrl">SubtitleShiftUp</up>
       <down mod="ctrl">SubtitleShiftDown</down>
@@ -383,25 +395,19 @@
     <keyboard>
       <f>FastForward</f>
       <r>Rewind</r>
-      <period>StepForward</period>
-      <comma>StepBack</comma>
-      <backspace>Fullscreen</backspace>
+      <backspace>OSD</backspace>
       <backspace mod="longpress">Stop</backspace>
-      <browser_back>Fullscreen</browser_back>
+      <browser_back>OSD</browser_back>
       <browser_back mod="longpress">Stop</browser_back>
       <return>OSD</return>
       <enter>OSD</enter>
-      <return mod="longpress">PlayPause</return>
-      <enter mod="longpress">PlayPause</enter>
       <m>OSD</m>
       <menu>OSD</menu>
       <i>Info</i>
       <o>CodecInfo</o>
       <z>AspectRatio</z>
       <zoom>AspectRatio</zoom>
-      <left>StepBack</left>
-      <right>StepForward</right>
-      <escape>Fullscreen</escape>
+      <escape>OSD</escape>
     </keyboard>
   </FullscreenGame>
   <GameOSD>
@@ -675,6 +681,8 @@
       <enter mod="longpress">ActivateWindow(PVROSDChannels)</enter>
       <pageup>ChannelUp</pageup>
       <pagedown>ChannelDown</pagedown>
+      <period mod="longpress">ChannelNumberSeparator</period>
+      <numpadperiod>ChannelNumberSeparator</numpadperiod>
     </keyboard>
   </FullscreenLiveTV>
   <FullscreenRadio>
@@ -691,14 +699,45 @@
       <enter mod="longpress">ActivateWindow(PVROSDChannels)</enter>
       <pageup>ChannelUp</pageup>
       <pagedown>ChannelDown</pagedown>
+      <period mod="longpress">ChannelNumberSeparator</period>
+      <numpadperiod>ChannelNumberSeparator</numpadperiod>
     </keyboard>
   </FullscreenRadio>
+  <FullscreenLiveTvPreview>
+    <keyboard>
+      <return>Select</return>
+      <enter>Select</enter>
+    </keyboard>
+  </FullscreenLiveTvPreview>
+  <FullscreenRadioPreview>
+    <keyboard>
+      <return>Select</return>
+      <enter>Select</enter>
+    </keyboard>
+  </FullscreenRadioPreview>
+  <FullscreenLiveTvInput>
+    <keyboard>
+      <return>Select</return>
+      <enter>Select</enter>
+      <period>ChannelNumberSeparator</period>
+      <numpadperiod>ChannelNumberSeparator</numpadperiod>
+    </keyboard>
+  </FullscreenLiveTvInput>
+  <FullscreenRadioInput>
+    <keyboard>
+      <return>Select</return>
+      <enter>Select</enter>
+      <period>ChannelNumberSeparator</period>
+      <numpadperiod>ChannelNumberSeparator</numpadperiod>
+    </keyboard>
+  </FullscreenRadioInput>
   <PVROSDChannels>
     <keyboard>
+      <period mod="longpress">ChannelNumberSeparator</period>
+      <numpadperiod>ChannelNumberSeparator</numpadperiod>
       <backspace>Close</backspace>
       <escape>Close</escape>
       <browser_back>Close</browser_back>
-      <c>Close</c>
     </keyboard>
   </PVROSDChannels>
   <PVRChannelGuide>
@@ -775,4 +814,9 @@
       <o>PlayerProcessInfo</o>
     </keyboard>
   </PlayerProcessInfo>
+  <TextViewer>
+    <keyboard>
+      <t>ToggleFont</t>
+    </keyboard>
+  </TextViewer>
 </keymap>

@@ -1,30 +1,17 @@
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-
-#include "system.h"
-
 #include "VideoSyncIos.h"
+#include "WinEventsIOS.h"
 #include "WinSystemIOS.h"
+#include "cores/AudioEngine/Sinks/AESinkDARWINIOS.h"
 #include "cores/RetroPlayer/process/ios/RPProcessInfoIOS.h"
-#include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererGuiTexture.h"
+#include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGLES.h"
 #include "cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.h"
 #include "cores/VideoPlayer/DVDCodecs/Video/VTB.h"
 #include "cores/VideoPlayer/Process/ios/ProcessInfoIOS.h"
@@ -34,7 +21,7 @@
 #include "utils/log.h"
 #include "filesystem/SpecialProtocol.h"
 #include "settings/DisplaySettings.h"
-#include "guilib/GraphicContext.h"
+#include "windowing/GraphicContext.h"
 #include "messaging/ApplicationMessenger.h"
 #include "guilib/Texture.h"
 #include "utils/StringUtils.h"
@@ -51,7 +38,12 @@
 #import "platform/darwin/ios/XBMCController.h"
 #import "platform/darwin/ios/IOSScreenManager.h"
 #include "platform/darwin/DarwinUtils.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #import <dlfcn.h>
+
+#define CONST_TOUCHSCREEN "Touchscreen"
+#define CONST_EXTERNAL "External"
 
 // IOSDisplayLinkCallback is declared in the lower part of the file
 @interface IOSDisplayLinkCallback : NSObject
@@ -71,15 +63,41 @@ struct CADisplayLinkWrapper
   IOSDisplayLinkCallback *callbackClass;
 };
 
+std::unique_ptr<CWinSystemBase> CWinSystemBase::CreateWinSystem()
+{
+  std::unique_ptr<CWinSystemBase> winSystem(new CWinSystemIOS());
+  return winSystem;
+}
+
+int CWinSystemIOS::GetDisplayIndexFromSettings()
+{
+  std::string currentScreen = CServiceBroker::GetSettingsComponent()->GetSettings()->GetString(CSettings::SETTING_VIDEOSCREEN_MONITOR);
+
+  int screenIdx = 0;
+  if (currentScreen == CONST_EXTERNAL)
+  {
+    if ([[UIScreen screens] count] > 1)
+    {
+      screenIdx = 1;
+    }
+    else// screen 1 is setup but not connected
+    {
+      // force internal screen
+      MoveToTouchscreen();
+    }
+  }
+
+  return screenIdx;
+}
+
 CWinSystemIOS::CWinSystemIOS() : CWinSystemBase()
 {
-  m_eWindowSystem = WINDOW_SYSTEM_IOS;
-
-  m_iVSyncErrors = 0;
   m_bIsBackgrounded = false;
   m_pDisplayLink = new CADisplayLinkWrapper;
   m_pDisplayLink->callbackClass = [[IOSDisplayLinkCallback alloc] init];
+  m_winEvents.reset(new CWinEventsIOS());
 
+  CAESinkDARWINIOS::Register();
 }
 
 CWinSystemIOS::~CWinSystemIOS()
@@ -129,7 +147,7 @@ bool CWinSystemIOS::CreateNewWindow(const std::string& name, bool fullScreen, RE
   CRendererVTB::Register();
   VIDEOPLAYER::CProcessInfoIOS::Register();
   RETRO::CRPProcessInfoIOS::Register();
-  RETRO::CRPProcessInfoIOS::RegisterRendererFactory(new RETRO::CRendererFactoryGuiTexture);
+  RETRO::CRPProcessInfoIOS::RegisterRendererFactory(new RETRO::CRendererFactoryOpenGLES);
 
   return true;
 }
@@ -162,8 +180,8 @@ bool CWinSystemIOS::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
   m_nHeight     = res.iHeight;
   m_bFullScreen = fullScreen;
 
-  CLog::Log(LOGDEBUG, "About to switch to %i x %i on screen %i",m_nWidth, m_nHeight, res.iScreen);
-  SwitchToVideoMode(res.iWidth, res.iHeight, res.fRefreshRate, res.iScreen);
+  CLog::Log(LOGDEBUG, "About to switch to %i x %i",m_nWidth, m_nHeight);
+  SwitchToVideoMode(res.iWidth, res.iHeight, res.fRefreshRate);
   CRenderSystemGLES::ResetRenderSystem(res.iWidth, res.iHeight);
 
   return true;
@@ -171,16 +189,14 @@ bool CWinSystemIOS::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
 
 UIScreenMode *getModeForResolution(int width, int height, unsigned int screenIdx)
 {
-  if( screenIdx >= [[UIScreen screens] count])
-    return NULL;
-
   UIScreen *aScreen = [[UIScreen screens]objectAtIndex:screenIdx];
   for ( UIScreenMode *mode in [aScreen availableModes] )
   {
     //for main screen also find modes where width and height are
     //exchanged (because of the 90°degree rotated buildinscreens)
     if((mode.size.width == width && mode.size.height == height) ||
-        (screenIdx == 0 && mode.size.width == height && mode.size.height == width))
+        (screenIdx == 0 && mode.size.width == height && mode.size.height == width)
+       || screenIdx == 0) // for screenIdx == 0 - which is the mainscreen - we only have one resolution - match it every time
     {
       CLog::Log(LOGDEBUG,"Found matching mode");
       return mode;
@@ -190,13 +206,10 @@ UIScreenMode *getModeForResolution(int width, int height, unsigned int screenIdx
   return NULL;
 }
 
-bool CWinSystemIOS::SwitchToVideoMode(int width, int height, double refreshrate, int screenIdx)
+bool CWinSystemIOS::SwitchToVideoMode(int width, int height, double refreshrate)
 {
   bool ret = false;
-  // SwitchToVideoMode will not return until the display has actually switched over.
-  // This can take several seconds.
-  if( screenIdx >= GetNumScreens())
-    return false;
+  int screenIdx = GetDisplayIndexFromSettings();
 
   //get the mode to pass to the controller
   UIScreenMode *newMode = getModeForResolution(width, height, screenIdx);
@@ -208,26 +221,8 @@ bool CWinSystemIOS::SwitchToVideoMode(int width, int height, double refreshrate,
   return ret;
 }
 
-int CWinSystemIOS::GetNumScreens()
-{
-  return [[UIScreen screens] count];
-}
-
-int CWinSystemIOS::GetCurrentScreen()
-{
-  int idx = 0;
-  if ([[IOSScreenManager sharedInstance] isExternalScreen])
-  {
-    idx = 1;
-  }
-  return idx;
-}
-
 bool CWinSystemIOS::GetScreenResolution(int* w, int* h, double* fps, int screenIdx)
 {
-  // Figure out the screen size. (default to main screen)
-  if(screenIdx >= GetNumScreens())
-    return false;
   UIScreen *screen = [[UIScreen screens] objectAtIndex:screenIdx];
   CGSize screenSize = [screen currentMode].size;
   *w = screenSize.width;
@@ -242,13 +237,14 @@ bool CWinSystemIOS::GetScreenResolution(int* w, int* h, double* fps, int screenI
     *h = firstMode.size.height;
   }
 
-  //for mainscreen use the eagl bounds
+  //for mainscreen exchange w and h
   //because mainscreen is build in
   //in 90° rotated
   if(screenIdx == 0)
   {
-    *w = [g_xbmcController getScreenSize].width;
-    *h = [g_xbmcController getScreenSize].height;
+    int tmp = *w;
+    *w = *h;
+    *h = tmp;
   }
   CLog::Log(LOGDEBUG,"Current resolution Screen: %i with %i x %i",screenIdx, *w, *h);
   return true;
@@ -261,73 +257,46 @@ void CWinSystemIOS::UpdateResolutions()
   double fps;
   CWinSystemBase::UpdateResolutions();
 
-  //first screen goes into the current desktop mode
-  if(GetScreenResolution(&w, &h, &fps, 0))
-  {
-    UpdateDesktopResolution(CDisplaySettings::GetInstance().GetResolutionInfo(RES_DESKTOP), 0, w, h, fps);
-  }
+  int screenIdx = GetDisplayIndexFromSettings();
 
-  //see resolution.h enum RESOLUTION for how the resolutions
-  //have to appear in the resolution info vector in CDisplaySettings
-  //add the desktop resolutions of the other screens
-  for(int i = 1; i < GetNumScreens(); i++)
-  {
-    RESOLUTION_INFO res;
-    //get current resolution of screen i
-    if(GetScreenResolution(&w, &h, &fps, i))
-    {
-      UpdateDesktopResolution(res, i, w, h, fps);
-      CDisplaySettings::GetInstance().AddResolutionInfo(res);
-    }
-  }
+  //first screen goes into the current desktop mode
+  if(GetScreenResolution(&w, &h, &fps, screenIdx))
+    UpdateDesktopResolution(CDisplaySettings::GetInstance().GetResolutionInfo(RES_DESKTOP), screenIdx == 0 ? CONST_TOUCHSCREEN : CONST_EXTERNAL, w, h, fps, 0);
+
+  CDisplaySettings::GetInstance().ClearCustomResolutions();
 
   //now just fill in the possible resolutions for the attached screens
   //and push to the resolution info vector
-  FillInVideoModes();
+  FillInVideoModes(screenIdx);
 }
 
-void CWinSystemIOS::FillInVideoModes()
+void CWinSystemIOS::FillInVideoModes(int screenIdx)
 {
   // Add full screen settings for additional monitors
-  int numDisplays = GetNumScreens();
-
-  for (int disp = 0; disp < numDisplays; disp++)
+  RESOLUTION_INFO res;
+  int w, h;
+  // atm we don't get refreshrate info from iOS
+  // but this may change in the future. In that case
+  // we will adapt this code for filling some
+  // useful info into this local var :)
+  double refreshrate = 0.0;
+  //screen 0 is mainscreen - 1 has to be the external one...
+  UIScreen *aScreen = [[UIScreen screens]objectAtIndex:screenIdx];
+  //found external screen
+  for ( UIScreenMode *mode in [aScreen availableModes] )
   {
-    RESOLUTION_INFO res;
-    int w, h;
-    // atm we don't get refreshrate info from iOS
-    // but this may change in the future. In that case
-    // we will adapt this code for filling some
-    // useful info into this local var :)
-    double refreshrate = 0.0;
-    //screen 0 is mainscreen - 1 has to be the external one...
-    UIScreen *aScreen = [[UIScreen screens]objectAtIndex:disp];
-    //found external screen
-    for ( UIScreenMode *mode in [aScreen availableModes] )
-    {
-      w = mode.size.width;
-      h = mode.size.height;
-      UpdateDesktopResolution(res, disp, w, h, refreshrate);
-      CLog::Log(LOGNOTICE, "Found possible resolution for display %d with %d x %d\n", disp, w, h);
+    w = mode.size.width;
+    h = mode.size.height;
 
-      //overwrite the mode str because  UpdateDesktopResolution adds a
-      //"Full Screen". Since the current resolution is there twice
-      //this would lead to 2 identical resolution entrys in the guisettings.xml.
-      //That would cause problems with saving screen overscan calibration
-      //because the wrong entry is picked on load.
-      //So we just use UpdateDesktopResolutions for the current DESKTOP_RESOLUTIONS
-      //in UpdateResolutions. And on all other resolutions make a unique
-      //mode str by doing it without appending "Full Screen".
-      //this is what linux does - though it feels that there shouldn't be
-      //the same resolution twice... - thats why i add a FIXME here.
-      res.strMode = StringUtils::Format("%dx%d @ %.2f", w, h, refreshrate);
-      g_graphicsContext.ResetOverscan(res);
-      CDisplaySettings::GetInstance().AddResolutionInfo(res);
-    }
+    UpdateDesktopResolution(res, screenIdx == 0 ? CONST_TOUCHSCREEN : CONST_EXTERNAL, w, h, refreshrate, 0);
+    CLog::Log(LOGNOTICE, "Found possible resolution for display %d with %d x %d\n", screenIdx, w, h);
+
+    CServiceBroker::GetWinSystem()->GetGfxContext().ResetOverscan(res);
+    CDisplaySettings::GetInstance().AddResolutionInfo(res);
   }
 }
 
-bool CWinSystemIOS::IsExtSupported(const char* extension)
+bool CWinSystemIOS::IsExtSupported(const char* extension) const
 {
   if(strncmp(extension, "EGL_", 4) != 0)
     return CRenderSystemGLES::IsExtSupported(extension);
@@ -440,24 +409,6 @@ void CWinSystemIOS::PresentRenderImpl(bool rendered)
     [g_xbmcController presentFramebuffer];
 }
 
-void CWinSystemIOS::SetVSyncImpl(bool enable)
-{
-  #if 0
-    // set swapinterval if possible
-    void *eglSwapInterval;
-    eglSwapInterval = dlsym( RTLD_DEFAULT, "eglSwapInterval" );
-    if ( eglSwapInterval )
-    {
-      ((void(*)(int))eglSwapInterval)( 1 ) ;
-    }
-  #endif
-  m_iVSyncMode = 10;
-}
-
-void CWinSystemIOS::ShowOSMouse(bool show)
-{
-}
-
 bool CWinSystemIOS::HasCursor()
 {
   // apple touch devices
@@ -466,13 +417,13 @@ bool CWinSystemIOS::HasCursor()
 
 void CWinSystemIOS::NotifyAppActiveChange(bool bActivated)
 {
-  if (bActivated && m_bWasFullScreenBeforeMinimize && !g_graphicsContext.IsFullScreenRoot())
+  if (bActivated && m_bWasFullScreenBeforeMinimize && !CServiceBroker::GetWinSystem()->GetGfxContext().IsFullScreenRoot())
     CApplicationMessenger::GetInstance().PostMsg(TMSG_TOGGLEFULLSCREEN);
 }
 
 bool CWinSystemIOS::Minimize()
 {
-  m_bWasFullScreenBeforeMinimize = g_graphicsContext.IsFullScreenRoot();
+  m_bWasFullScreenBeforeMinimize = CServiceBroker::GetWinSystem()->GetGfxContext().IsFullScreenRoot();
   if (m_bWasFullScreenBeforeMinimize)
     CApplicationMessenger::GetInstance().PostMsg(TMSG_TOGGLEFULLSCREEN);
 
@@ -499,8 +450,28 @@ void* CWinSystemIOS::GetEAGLContextObj()
   return [g_xbmcController getEAGLContextObj];
 }
 
+void CWinSystemIOS::GetConnectedOutputs(std::vector<std::string> *outputs)
+{
+  outputs->push_back("Default");
+  outputs->push_back(CONST_TOUCHSCREEN);
+  if ([[UIScreen screens] count] > 1)
+  {
+    outputs->push_back(CONST_EXTERNAL);
+  }
+}
+
+void CWinSystemIOS::MoveToTouchscreen()
+{
+  CDisplaySettings::GetInstance().SetMonitor(CONST_TOUCHSCREEN);
+}
+
 std::unique_ptr<CVideoSync> CWinSystemIOS::GetVideoSync(void *clock)
 {
-  std::unique_ptr<CVideoSync> pVSync(new CVideoSyncIos(clock));
+  std::unique_ptr<CVideoSync> pVSync(new CVideoSyncIos(clock, *this));
   return pVSync;
+}
+
+bool CWinSystemIOS::MessagePump()
+{
+  return m_winEvents->MessagePump();
 }

@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -199,10 +199,6 @@ msgstr "Mevcut"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Durdurmak için [B]OK[/B] tuşuna basın"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Dili değiştir"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -448,6 +444,14 @@ msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Dış görünüm için fanart paketi seçin"
 
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Programı Seçiniz"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Çözünürlük seç"
+
 msgctxt "#31134"
 msgid "Remaining"
 msgstr "Kalan"
@@ -555,3 +559,19 @@ msgstr "Kişisel oyunlarınızı oynayın veya resmi depodaki birçok oyun eklen
 msgctxt "#31163"
 msgid "Show Fanart background"
 msgstr "Arka plan fanartını göster"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Profil kimliği türünü seçin"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Profil adı"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Profil avatarı"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Arka plana animasyon ekle"

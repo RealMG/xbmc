@@ -1,22 +1,11 @@
 /*
- *      Copyright (C) 2017 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include <time.h>
@@ -29,13 +18,17 @@
 
 #include <wayland-client.hpp>
 #include <wayland-cursor.hpp>
+#include <wayland-extra-protocols.hpp>
 
 #include "Connection.h"
 #include "Output.h"
 #include "Seat.h"
+#include "SeatInputProcessing.h"
 #include "Signals.h"
 #include "ShellSurface.h"
+#include "platform/linux/OptionalsReg.h"
 #include "threads/CriticalSection.h"
+#include "threads/Event.h"
 #include "utils/ActorProtocol.h"
 #include "WindowDecorationHandler.h"
 #include "windowing/WinSystem.h"
@@ -72,9 +65,9 @@ public:
   void FinishModeChange(RESOLUTION res) override;
   void FinishWindowResize(int newWidth, int newHeight) override;
 
+  bool UseLimitedColor() override;
+
   void UpdateResolutions() override;
-  int GetNumScreens() override;
-  int GetCurrentScreen() override;
 
   bool CanDoWindowed() override;
   bool Minimize() override;
@@ -89,16 +82,17 @@ public:
   float GetFrameLatencyAdjustment() override;
   std::unique_ptr<CVideoSync> GetVideoSync(void* clock) override;
 
-  void* GetVaDisplay();
-
-  void Register(IDispResource* resource);
-  void Unregister(IDispResource* resource);
+  void Register(IDispResource* resource) override;
+  void Unregister(IDispResource* resource) override;
 
   using PresentationFeedbackHandler = std::function<void(timespec /* tv */, std::uint32_t /* refresh */, std::uint32_t /* sync output id */, float /* sync output fps */, std::uint64_t /* msc */)>;
   CSignalRegistration RegisterOnPresentationFeedback(PresentationFeedbackHandler handler);
 
   // Like CWinSystemX11
   void GetConnectedOutputs(std::vector<std::string>* outputs);
+
+  // winevents override
+  bool MessagePump() override;
 
 protected:
   std::unique_ptr<KODI::WINDOWING::IOSScreenSaver> GetOSScreenSaverImpl() override;
@@ -121,10 +115,10 @@ protected:
 
 private:
   // IInputHandler
-  void OnEnter(std::uint32_t seatGlobalName, InputType type) override;
-  void OnLeave(std::uint32_t seatGlobalName, InputType type) override;
-  void OnEvent(std::uint32_t seatGlobalName, InputType type, XBMC_Event& event) override;
-  void OnSetCursor(wayland::pointer_t& pointer, std::uint32_t serial) override;
+  void OnEnter(InputType type) override;
+  void OnLeave(InputType type) override;
+  void OnEvent(InputType type, XBMC_Event& event) override;
+  void OnSetCursor(std::uint32_t seatGlobalName, std::uint32_t serial) override;
 
   // IWindowDecorationHandler
   void OnWindowMove(const wayland::seat_t& seat, std::uint32_t serial) override;
@@ -175,6 +169,8 @@ private:
   void OnOutputDone(std::uint32_t name);
   void UpdateBufferScale();
   void ApplyBufferScale();
+  void ApplyOpaqueRegion();
+  void ApplyWindowGeometry();
   void UpdateTouchDpi();
   void ApplyShellSurfaceState(IShellSurface::StateBitset state);
 
@@ -200,10 +196,16 @@ private:
 
   std::unique_ptr<IShellSurface> m_shellSurface;
 
+  // Frame callback handling
+  // -----------------------
+  wayland::callback_t m_frameCallback;
+  CEvent m_frameCallbackEvent;
+
   // Seat handling
   // -------------
-  std::map<std::uint32_t, CSeat> m_seatProcessors;
-  CCriticalSection m_seatProcessorsMutex;
+  std::map<std::uint32_t, CSeat> m_seats;
+  CCriticalSection m_seatsMutex;
+  std::unique_ptr<CSeatInputProcessing> m_seatInputProcessing;
   std::map<std::uint32_t, std::shared_ptr<COutput>> m_outputs;
   /// outputs that did not receive their done event yet
   std::map<std::uint32_t, std::shared_ptr<COutput>> m_outputsInPreparation;
@@ -289,6 +291,8 @@ private:
   std::uint32_t m_lastAckedSerial{0u};
   /// Whether this is the first call to SetFullScreen
   bool m_isInitialSetFullScreen{true};
+
+  std::unique_ptr<OPTIONALS::CLircContainer, OPTIONALS::delete_CLircContainer> m_lirc;
 };
 
 

@@ -1,27 +1,15 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "CustomControllerTranslator.h"
-#include "ActionIDs.h"
-#include "ActionTranslator.h"
 #include "WindowTranslator.h" //! @todo
+#include "input/actions/ActionIDs.h"
+#include "input/actions/ActionTranslator.h"
 #include "utils/log.h"
 #include "utils/XBMCTinyXML.h"
 
@@ -78,26 +66,22 @@ bool CCustomControllerTranslator::TranslateCustomControllerString(int windowId, 
 {
   unsigned int actionId = ACTION_NONE;
 
+  // handle virtual windows
+  windowId = CWindowTranslator::GetVirtualWindow(windowId);
+
   // Try to get the action from the current window
   if (!TranslateString(windowId, controllerName, buttonId, actionId, strAction))
   {
-    // If it's invalid, try to get it from a fallback window or the global map
-    int fallbackWindow = CWindowTranslator::GetFallbackWindow(windowId);
-    if (fallbackWindow > -1)
-      TranslateString(fallbackWindow, controllerName, buttonId, actionId, strAction);
-
-    // Still no valid action? Use global map
-    if (action == ACTION_NONE)
-      TranslateString(-1, controllerName, buttonId, actionId, strAction);
+    // if it's invalid, try to get it from fallback windows or the global map (windowId == -1)
+    while (actionId == ACTION_NONE && windowId > -1)
+    {
+      windowId = CWindowTranslator::GetFallbackWindow(windowId);
+      TranslateString(windowId, controllerName, buttonId, actionId, strAction);
+    }
   }
 
-  if (actionId != ACTION_NONE)
-  {
-    action = actionId;
-    return true;
-  }
-
-  return false;
+  action = actionId;
+  return actionId != ACTION_NONE;
 }
 
 bool CCustomControllerTranslator::TranslateString(int windowId, const std::string& controllerName, int buttonId, unsigned int& actionId, std::string& strAction)

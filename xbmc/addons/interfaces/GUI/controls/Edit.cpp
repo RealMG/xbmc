@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Edit.h"
@@ -58,7 +46,7 @@ void Interface_GUIControlEdit::set_visible(void* kodiBase, void* handle, bool vi
   if (!addon || !control)
   {
     CLog::Log(LOGERROR, "Interface_GUIControlEdit::%s - invalid handler data (kodiBase='%p', handle='%p') on addon '%s'",
-                          __FUNCTION__, addon, control, addon ? addon->ID().c_str() : "unknown");
+                          __FUNCTION__, kodiBase, handle, addon ? addon->ID().c_str() : "unknown");
     return;
   }
 
@@ -72,7 +60,7 @@ void Interface_GUIControlEdit::set_enabled(void* kodiBase, void* handle, bool en
   if (!addon || !control)
   {
     CLog::Log(LOGERROR, "Interface_GUIControlEdit::%s - invalid handler data (kodiBase='%p', handle='%p') on addon '%s'",
-                          __FUNCTION__, addon, control, addon ? addon->ID().c_str() : "unknown");
+                          __FUNCTION__, kodiBase, handle, addon ? addon->ID().c_str() : "unknown");
     return;
   }
 
@@ -86,7 +74,7 @@ void Interface_GUIControlEdit::set_input_type(void* kodiBase, void* handle, int 
   if (!addon || !control || !heading)
   {
     CLog::Log(LOGERROR, "Interface_GUIControlEdit::%s - invalid handler data (kodiBase='%p', handle='%p', heading='%p') on addon '%s'",
-                          __FUNCTION__, addon, control, heading, addon ? addon->ID().c_str() : "unknown");
+                          __FUNCTION__, kodiBase, handle, heading, addon ? addon->ID().c_str() : "unknown");
     return;
   }
 
@@ -127,7 +115,7 @@ void Interface_GUIControlEdit::set_input_type(void* kodiBase, void* handle, int 
     default:
       kodiType = CGUIEditControl::INPUT_TYPE_PASSWORD_NUMBER_VERIFY_NEW;
   }
- 
+
   control->SetInputType(kodiType, heading);
 }
 
@@ -138,7 +126,7 @@ void Interface_GUIControlEdit::set_label(void* kodiBase, void* handle, const cha
   if (!addon || !control || !label)
   {
     CLog::Log(LOGERROR, "Interface_GUIControlEdit::%s - invalid handler data (kodiBase='%p', handle='%p', label='%p') on addon '%s'",
-                          __FUNCTION__, addon, control, label, addon ? addon->ID().c_str() : "unknown");
+                          __FUNCTION__, kodiBase, handle, label, addon ? addon->ID().c_str() : "unknown");
     return;
   }
 
@@ -152,7 +140,7 @@ char* Interface_GUIControlEdit::get_label(void* kodiBase, void* handle)
   if (!addon || !control)
   {
     CLog::Log(LOGERROR, "Interface_GUIControlEdit::%s - invalid handler data (kodiBase='%p', handle='%p') on addon '%s'",
-                          __FUNCTION__, addon, control, addon ? addon->ID().c_str() : "unknown");
+                          __FUNCTION__, kodiBase, handle, addon ? addon->ID().c_str() : "unknown");
     return nullptr;
   }
 
@@ -166,7 +154,7 @@ void Interface_GUIControlEdit::set_text(void* kodiBase, void* handle, const char
   if (!addon || !control || !text)
   {
     CLog::Log(LOGERROR, "Interface_GUIControlEdit::%s - invalid handler data (kodiBase='%p', handle='%p', text='%p') on addon '%s'",
-                          __FUNCTION__, addon, control, text, addon ? addon->ID().c_str() : "unknown");
+                          __FUNCTION__, kodiBase, handle, text, addon ? addon->ID().c_str() : "unknown");
     return;
   }
 
@@ -180,7 +168,7 @@ char* Interface_GUIControlEdit::get_text(void* kodiBase, void* handle)
   if (!addon || !control)
   {
     CLog::Log(LOGERROR, "Interface_GUIControlEdit::%s - invalid handler data (kodiBase='%p', handle='%p') on addon '%s'",
-                          __FUNCTION__, addon, control, addon ? addon->ID().c_str() : "unknown");
+                          __FUNCTION__, kodiBase, handle, addon ? addon->ID().c_str() : "unknown");
     return nullptr;
   }
 
@@ -194,7 +182,7 @@ void Interface_GUIControlEdit::set_cursor_position(void* kodiBase, void* handle,
   if (!addon || !control)
   {
     CLog::Log(LOGERROR, "Interface_GUIControlEdit::%s - invalid handler data (kodiBase='%p', handle='%p') on addon '%s'",
-                          __FUNCTION__, addon, control, addon ? addon->ID().c_str() : "unknown");
+                          __FUNCTION__, kodiBase, handle, addon ? addon->ID().c_str() : "unknown");
     return;
   }
 
@@ -208,7 +196,7 @@ unsigned int Interface_GUIControlEdit::get_cursor_position(void* kodiBase, void*
   if (!addon || !control)
   {
     CLog::Log(LOGERROR, "Interface_GUIControlEdit::%s - invalid handler data (kodiBase='%p', handle='%p') on addon '%s'",
-                          __FUNCTION__, addon, control, addon ? addon->ID().c_str() : "unknown");
+                          __FUNCTION__, kodiBase, handle, addon ? addon->ID().c_str() : "unknown");
     return 0;
   }
 

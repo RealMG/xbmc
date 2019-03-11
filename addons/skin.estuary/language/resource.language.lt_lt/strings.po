@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -199,10 +199,6 @@ msgstr "Prieinama"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Paspauskite [B]OK[/B] norėdami sustabdyti"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Perjungti kalbą"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -448,6 +444,14 @@ msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Pasirinkti teminės išvaizdos Fanart paketą"
 
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Pasirinkite programą"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Pasirinkti raišką"
+
 msgctxt "#31134"
 msgid "Remaining"
 msgstr "Liko"
@@ -555,3 +559,19 @@ msgstr "Žaiskite asmeninius žaidimus arba atsisiųskite vieną iš daugelio ž
 msgctxt "#31163"
 msgid "Show Fanart background"
 msgstr "Rodyti Fanart fone"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Pasirinkite profilio identifikacijos būdą"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Profilio vardas"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Profilio avataras"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Animuoti foną"

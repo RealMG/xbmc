@@ -1,43 +1,23 @@
 /*
- *      Copyright (C) 2014-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PeripheralAddon.h"
-#include "PeripheralAddonTranslator.h"
-#include "ServiceBroker.h"
-#include "AddonButtonMap.h"
 #include "PeripheralAddonTranslator.h"
 #include "addons/AddonManager.h"
 #include "filesystem/Directory.h"
 #include "filesystem/SpecialProtocol.h"
 #include "games/controllers/Controller.h"
 #include "games/controllers/ControllerManager.h"
+#include "input/joysticks/interfaces/IButtonMap.h"
 #include "input/joysticks/DriverPrimitive.h"
-#include "input/joysticks/IButtonMap.h"
-#include "input/joysticks/IDriverHandler.h"
-#include "input/joysticks/JoystickTranslator.h"
-#include "input/joysticks/JoystickUtils.h"
 #include "peripherals/Peripherals.h"
 #include "peripherals/bus/virtual/PeripheralBusAddon.h"
 #include "peripherals/devices/PeripheralJoystick.h"
-#include "peripherals/devices/PeripheralJoystickEmulation.h"
-#include "settings/Settings.h"
 #include "threads/SingleLock.h"
 #include "utils/log.h"
 #include "utils/StringUtils.h"
@@ -51,15 +31,19 @@ using namespace JOYSTICK;
 using namespace PERIPHERALS;
 using namespace XFILE;
 
-#define JOYSTICK_EMULATION_BUTTON_MAP_NAME  "Keyboard"
-#define JOYSTICK_EMULATION_PROVIDER         "application"
+#define KEYBOARD_BUTTON_MAP_NAME  "Keyboard"
+#define KEYBOARD_PROVIDER         "application"
+
+#define MOUSE_BUTTON_MAP_NAME     "Mouse"
+#define MOUSE_PROVIDER            "application"
 
 #ifndef SAFE_DELETE
   #define SAFE_DELETE(p)  do { delete (p); (p) = NULL; } while (0)
 #endif
 
-CPeripheralAddon::CPeripheralAddon(const ADDON::BinaryAddonBasePtr& addonInfo)
+CPeripheralAddon::CPeripheralAddon(const ADDON::BinaryAddonBasePtr& addonInfo, CPeripherals &manager)
   : IAddonInstanceHandler(ADDON_INSTANCE_PERIPHERAL, addonInfo),
+    m_manager(manager),
     m_bSupportsJoystickRumble(false),
     m_bSupportsJoystickPowerOff(false)
 {
@@ -276,9 +260,9 @@ bool CPeripheralAddon::SupportsFeature(PeripheralFeature feature) const
   return false;
 }
 
-int CPeripheralAddon::GetPeripheralsWithFeature(PeripheralVector &results, const PeripheralFeature feature) const
+unsigned int CPeripheralAddon::GetPeripheralsWithFeature(PeripheralVector &results, const PeripheralFeature feature) const
 {
-  int iReturn(0);
+  unsigned int iReturn = 0;
   CSingleLock lock(m_critSection);
   for (auto it : m_peripherals)
   {
@@ -291,15 +275,15 @@ int CPeripheralAddon::GetPeripheralsWithFeature(PeripheralVector &results, const
   return iReturn;
 }
 
-size_t CPeripheralAddon::GetNumberOfPeripherals(void) const
+unsigned int CPeripheralAddon::GetNumberOfPeripherals(void) const
 {
   CSingleLock lock(m_critSection);
-  return m_peripherals.size();
+  return static_cast<unsigned int>(m_peripherals.size());
 }
 
-size_t CPeripheralAddon::GetNumberOfPeripheralsWithId(const int iVendorId, const int iProductId) const
+unsigned int CPeripheralAddon::GetNumberOfPeripheralsWithId(const int iVendorId, const int iProductId) const
 {
-  int iReturn(0);
+  unsigned int iReturn = 0;
   CSingleLock lock(m_critSection);
   for (auto it : m_peripherals)
   {
@@ -640,12 +624,13 @@ bool CPeripheralAddon::SetIgnoredPrimitives(const CPeripheral* device, const Pri
 
   JOYSTICK_DRIVER_PRIMITIVE* addonPrimitives = nullptr;
   kodi::addon::DriverPrimitives::ToStructs(primitives, &addonPrimitives);
+  const unsigned int primitiveCount = static_cast<unsigned int>(primitives.size());
 
   LogError(retVal = m_struct.toAddon.set_ignored_primitives(&m_struct, &joystickStruct,
-        primitives.size(), addonPrimitives), "SetIgnoredPrimitives()");
+    primitiveCount, addonPrimitives), "SetIgnoredPrimitives()");
 
   kodi::addon::Joystick::FreeStruct(joystickStruct);
-  kodi::addon::DriverPrimitives::FreeStructs(primitives.size(), addonPrimitives);
+  kodi::addon::DriverPrimitives::FreeStructs(primitiveCount, addonPrimitives);
 
   return retVal == PERIPHERAL_NO_ERROR;
 }
@@ -774,6 +759,39 @@ void CPeripheralAddon::RefreshButtonMaps(const std::string& strDeviceName /* = "
   }
 }
 
+void CPeripheralAddon::TriggerDeviceScan()
+{
+  m_manager.TriggerDeviceScan(PERIPHERAL_BUS_ADDON);
+}
+
+unsigned int CPeripheralAddon::FeatureCount(const std::string &controllerId, JOYSTICK_FEATURE_TYPE type) const
+{
+  using namespace GAME;
+
+  unsigned int count = 0;
+
+  CControllerManager& controllerProfiles = m_manager.GetControllerProfiles();
+  ControllerPtr controller = controllerProfiles.GetController(controllerId);
+  if (controller)
+    count = controller->FeatureCount(CPeripheralAddonTranslator::TranslateFeatureType(type));
+
+  return count;
+}
+
+JOYSTICK_FEATURE_TYPE CPeripheralAddon::FeatureType(const std::string &controllerId, const std::string &featureName) const
+{
+  using namespace GAME;
+
+  JOYSTICK_FEATURE_TYPE type = JOYSTICK_FEATURE_TYPE_UNKNOWN;
+
+  CControllerManager& controllerProfiles = m_manager.GetControllerProfiles();
+  ControllerPtr controller = controllerProfiles.GetController(controllerId);
+  if (controller)
+    type = CPeripheralAddonTranslator::TranslateFeatureType(controller->FeatureType(featureName));
+
+  return type;
+}
+
 void CPeripheralAddon::GetPeripheralInfo(const CPeripheral* device, kodi::addon::Peripheral& peripheralInfo)
 {
   peripheralInfo.SetType(CPeripheralAddonTranslator::TranslateType(device->Type()));
@@ -796,12 +814,11 @@ void CPeripheralAddon::GetJoystickInfo(const CPeripheral* device, kodi::addon::J
     joystickInfo.SetMotorCount(joystick->MotorCount());
     joystickInfo.SetSupportsPowerOff(joystick->SupportsPowerOff());
   }
-  else if (device->Type() == PERIPHERAL_JOYSTICK_EMULATION)
+  else if (device->Type() == PERIPHERAL_KEYBOARD ||
+           device->Type() == PERIPHERAL_MOUSE)
   {
-    const CPeripheralJoystickEmulation* joystick = static_cast<const CPeripheralJoystickEmulation*>(device);
-    joystickInfo.SetName(GetDeviceName(PERIPHERAL_JOYSTICK_EMULATION)); // Override name with non-localized version
-    joystickInfo.SetProvider(GetProvider(PERIPHERAL_JOYSTICK_EMULATION));
-    joystickInfo.SetIndex(joystick->ControllerNumber());
+    joystickInfo.SetName(GetDeviceName(device->Type())); // Override name with non-localized version
+    joystickInfo.SetProvider(GetProvider(device->Type()));
   }
 }
 
@@ -831,8 +848,10 @@ std::string CPeripheralAddon::GetDeviceName(PeripheralType type)
 {
   switch (type)
   {
-  case PERIPHERAL_JOYSTICK_EMULATION:
-    return JOYSTICK_EMULATION_BUTTON_MAP_NAME;
+  case PERIPHERAL_KEYBOARD:
+    return KEYBOARD_BUTTON_MAP_NAME;
+  case PERIPHERAL_MOUSE:
+    return MOUSE_BUTTON_MAP_NAME;
   default:
     break;
   }
@@ -844,8 +863,10 @@ std::string CPeripheralAddon::GetProvider(PeripheralType type)
 {
   switch (type)
   {
-  case PERIPHERAL_JOYSTICK_EMULATION:
-    return JOYSTICK_EMULATION_PROVIDER;
+  case PERIPHERAL_KEYBOARD:
+    return KEYBOARD_PROVIDER;
+  case PERIPHERAL_MOUSE:
+    return MOUSE_PROVIDER;
   default:
     break;
   }
@@ -855,7 +876,10 @@ std::string CPeripheralAddon::GetProvider(PeripheralType type)
 
 void CPeripheralAddon::cb_trigger_scan(void* kodiInstance)
 {
-  CServiceBroker::GetPeripherals().TriggerDeviceScan(PERIPHERAL_BUS_ADDON);
+  if (kodiInstance == nullptr)
+    return;
+
+  static_cast<CPeripheralAddon*>(kodiInstance)->TriggerDeviceScan();
 }
 
 void CPeripheralAddon::cb_refresh_button_maps(void* kodiInstance, const char* deviceName, const char* controllerId)
@@ -868,28 +892,16 @@ void CPeripheralAddon::cb_refresh_button_maps(void* kodiInstance, const char* de
 
 unsigned int CPeripheralAddon::cb_feature_count(void* kodiInstance, const char* controllerId, JOYSTICK_FEATURE_TYPE type)
 {
-  using namespace GAME;
+  if (kodiInstance == nullptr || controllerId == nullptr)
+    return 0;
 
-  unsigned int count = 0;
-
-  CControllerManager& controllerManager = CServiceBroker::GetGameControllerManager();
-  ControllerPtr controller = controllerManager.GetController(controllerId);
-  if (controller)
-    count = controller->FeatureCount(CPeripheralAddonTranslator::TranslateFeatureType(type));
-
-  return count;
+  return static_cast<CPeripheralAddon*>(kodiInstance)->FeatureCount(controllerId, type);
 }
 
 JOYSTICK_FEATURE_TYPE CPeripheralAddon::cb_feature_type(void* kodiInstance, const char* controllerId, const char* featureName)
 {
-  using namespace GAME;
+  if (kodiInstance == nullptr || controllerId == nullptr || featureName == nullptr)
+    return JOYSTICK_FEATURE_TYPE_UNKNOWN;
 
-  JOYSTICK_FEATURE_TYPE type = JOYSTICK_FEATURE_TYPE::JOYSTICK_FEATURE_TYPE_UNKNOWN;
-
-  CControllerManager& controllerManager = CServiceBroker::GetGameControllerManager();
-  ControllerPtr controller = controllerManager.GetController(controllerId);
-  if (controller)
-    type = CPeripheralAddonTranslator::TranslateFeatureType(controller->FeatureType(featureName));
-
-  return type;
+  return static_cast<CPeripheralAddon*>(kodiInstance)->FeatureType(controllerId, featureName);
 }

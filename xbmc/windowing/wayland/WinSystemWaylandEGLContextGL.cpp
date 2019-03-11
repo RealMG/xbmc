@@ -1,38 +1,29 @@
 /*
- *      Copyright (C) 2017 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "WinSystemWaylandEGLContextGL.h"
+#include "OptionalsReg.h"
 
 #include <EGL/egl.h>
+#include <EGL/eglext.h>
 
 #include "cores/RetroPlayer/process/RPProcessInfo.h"
-#include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererGuiTexture.h"
+#include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGL.h"
 #include "cores/VideoPlayer/VideoRenderers/LinuxRendererGL.h"
 #include "utils/log.h"
 
-#if defined(HAVE_LIBVA)
-#include "cores/VideoPlayer/DVDCodecs/Video/VAAPI.h"
-#include "cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGL.h"
-#endif
-
 using namespace KODI::WINDOWING::WAYLAND;
+
+std::unique_ptr<CWinSystemBase> CWinSystemBase::CreateWinSystem()
+{
+  std::unique_ptr<CWinSystemBase> winSystem(new CWinSystemWaylandEGLContextGL());
+  return winSystem;
+}
 
 bool CWinSystemWaylandEGLContextGL::InitWindowSystem()
 {
@@ -42,16 +33,46 @@ bool CWinSystemWaylandEGLContextGL::InitWindowSystem()
   }
 
   CLinuxRendererGL::Register();
-  RETRO::CRPProcessInfo::RegisterRendererFactory(new RETRO::CRendererFactoryGuiTexture);
+  RETRO::CRPProcessInfo::RegisterRendererFactory(new RETRO::CRendererFactoryOpenGL);
 
-#if defined(HAVE_LIBVA)
-  bool general, hevc;
-  CRendererVAAPI::Register(GetVaDisplay(), m_eglContext.GetEGLDisplay(), general, hevc);
+  bool general, deepColor;
+  m_vaapiProxy.reset(::WAYLAND::VaapiProxyCreate());
+  ::WAYLAND::VaapiProxyConfig(m_vaapiProxy.get(),GetConnection()->GetDisplay(),
+                              m_eglContext.GetEGLDisplay());
+  ::WAYLAND::VAAPIRegisterRender(m_vaapiProxy.get(), general, deepColor);
   if (general)
   {
-    VAAPI::CDecoder::Register(hevc);
+    ::WAYLAND::VAAPIRegister(m_vaapiProxy.get(), deepColor);
   }
-#endif
+
+  return true;
+}
+
+bool CWinSystemWaylandEGLContextGL::CreateContext()
+{
+  const EGLint glMajor = 3;
+  const EGLint glMinor = 2;
+
+  CEGLAttributesVec contextAttribs;
+  contextAttribs.Add({{EGL_CONTEXT_MAJOR_VERSION_KHR, glMajor},
+                      {EGL_CONTEXT_MINOR_VERSION_KHR, glMinor},
+                      {EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR}});
+
+  if (!m_eglContext.CreateContext(contextAttribs))
+  {
+    CEGLAttributesVec fallbackContextAttribs;
+    fallbackContextAttribs.Add({{EGL_CONTEXT_CLIENT_VERSION, 2}});
+
+    if (!m_eglContext.CreateContext(fallbackContextAttribs))
+    {
+      CLog::Log(LOGERROR, "EGL context creation failed");
+      return false;
+    }
+    else
+    {
+      CLog::Log(LOGWARNING, "Your OpenGL drivers do not support OpenGL {}.{} core profile. Kodi will run in compatibility mode, but performance may suffer.", glMajor, glMinor);
+    }
+  }
 
   return true;
 }
@@ -70,10 +91,15 @@ void CWinSystemWaylandEGLContextGL::SetContextSize(CSizeInt size)
 
 void CWinSystemWaylandEGLContextGL::SetVSyncImpl(bool enable)
 {
-  m_eglContext.SetVSync(enable);
+  // Unsupported
 }
 
 void CWinSystemWaylandEGLContextGL::PresentRenderImpl(bool rendered)
 {
   PresentFrame(rendered);
+}
+
+void CWinSystemWaylandEGLContextGL::delete_CVaapiProxy::operator()(CVaapiProxy *p) const
+{
+  ::WAYLAND::VaapiProxyDelete(p);
 }

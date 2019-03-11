@@ -1,32 +1,20 @@
 /*
- *      Copyright (C) 2007-2017 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2007-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "RendererVDPAU.h"
 #include "../RenderFactory.h"
 #include "ServiceBroker.h"
 #include "cores/VideoPlayer/DVDCodecs/Video/VDPAU.h"
-#include "settings/Settings.h"
 #include "settings/AdvancedSettings.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "utils/log.h"
 #include "utils/GLUtils.h"
-#include "windowing/WindowingFactory.h"
 
 using namespace VDPAU;
 
@@ -56,7 +44,7 @@ CRendererVDPAU::~CRendererVDPAU()
   m_interopState.Finish();
 }
 
-bool CRendererVDPAU::Configure(const VideoPicture &picture, float fps, unsigned flags, unsigned int orientation)
+bool CRendererVDPAU::Configure(const VideoPicture &picture, float fps, unsigned int orientation)
 {
   CVdpauRenderPicture *pic = dynamic_cast<CVdpauRenderPicture*>(picture.videoBuffer);
   if (pic->procPic.isYuv)
@@ -76,7 +64,7 @@ bool CRendererVDPAU::Configure(const VideoPicture &picture, float fps, unsigned 
     fence = GL_NONE;
   }
 
-  return CLinuxRendererGL::Configure(picture, fps, flags, orientation);
+  return CLinuxRendererGL::Configure(picture, fps, orientation);
 }
 
 bool CRendererVDPAU::ConfigChanged(const VideoPicture &picture)
@@ -128,7 +116,7 @@ bool CRendererVDPAU::Supports(ERENDERFEATURE feature)
   if(feature == RENDERFEATURE_BRIGHTNESS ||
      feature == RENDERFEATURE_CONTRAST)
   {
-    if (!m_isYuv && !CServiceBroker::GetSettings().GetBool(CSettings::SETTING_VIDEOSCREEN_LIMITEDRANGE))
+    if (!m_isYuv && !CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_VIDEOSCREEN_LIMITEDRANGE))
       return true;
 
     return (m_renderMethod & RENDER_GLSL);
@@ -173,7 +161,7 @@ bool CRendererVDPAU::Supports(ESCALINGMETHOD method)
     // if scaling is below level, avoid hq scaling
     float scaleX = fabs(((float)m_sourceWidth - m_destRect.Width())/m_sourceWidth)*100;
     float scaleY = fabs(((float)m_sourceHeight - m_destRect.Height())/m_sourceHeight)*100;
-    int minScale = CServiceBroker::GetSettings().GetInt("videoplayer.hqscalers");
+    int minScale = CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt("videoplayer.hqscalers");
     if (scaleX < minScale && scaleY < minScale)
       return false;
 
@@ -182,7 +170,7 @@ bool CRendererVDPAU::Supports(ESCALINGMETHOD method)
         && method != VS_SCALINGMETHOD_LANCZOS3)
       return true;
     else
-      return g_advancedSettings.m_videoEnableHighQualityHwScalers;
+      return CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoEnableHighQualityHwScalers;
   }
 
   return false;
@@ -193,7 +181,7 @@ EShaderFormat CRendererVDPAU::GetShaderFormat()
   EShaderFormat ret = SHADER_NONE;
 
   if (m_isYuv)
-    ret = SHADER_NV12_RRG;
+    ret = SHADER_NV12;
 
   return ret;
 }
@@ -289,14 +277,14 @@ bool CRendererVDPAU::UploadTexture(int index)
 
 bool CRendererVDPAU::CreateVDPAUTexture(int index)
 {
-  YUVBUFFER &buf = m_buffers[index];
+  CPictureBuffer &buf = m_buffers[index];
   YuvImage &im = buf.image;
-  YUVPLANE &plane = buf.fields[FIELD_FULL][0];
+  CYuvPlane &plane = buf.fields[FIELD_FULL][0];
 
   DeleteVDPAUTexture(index);
 
   memset(&im, 0, sizeof(im));
-  memset(&plane, 0, sizeof(YUVPLANE));
+  plane = {};
   im.height = m_sourceHeight;
   im.width = m_sourceWidth;
 
@@ -312,18 +300,18 @@ bool CRendererVDPAU::CreateVDPAUTexture(int index)
 
 void CRendererVDPAU::DeleteVDPAUTexture(int index)
 {
-  YUVBUFFER &buf = m_buffers[index];
-  YUVPLANE &plane = buf.fields[FIELD_FULL][0];
+  CPictureBuffer &buf = m_buffers[index];
+  CYuvPlane &plane = buf.fields[FIELD_FULL][0];
 
   plane.id = 0;
 }
 
 bool CRendererVDPAU::UploadVDPAUTexture(int index)
 {
-  YUVBUFFER &buf = m_buffers[index];
+  CPictureBuffer &buf = m_buffers[index];
   VDPAU::CVdpauRenderPicture *pic = dynamic_cast<VDPAU::CVdpauRenderPicture*>(buf.videoBuffer);
 
-  YUVPLANE &plane = buf.fields[FIELD_FULL][0];
+  CYuvPlane &plane = buf.fields[FIELD_FULL][0];
 
   if (!pic)
   {
@@ -366,15 +354,15 @@ bool CRendererVDPAU::UploadVDPAUTexture(int index)
 
 bool CRendererVDPAU::CreateVDPAUTexture420(int index)
 {
-  YUVBUFFER &buf = m_buffers[index];
+  CPictureBuffer &buf = m_buffers[index];
   YuvImage &im = buf.image;
-  YUVPLANE (&planes)[YuvImage::MAX_PLANES] = buf.fields[0];
+  CYuvPlane (&planes)[YuvImage::MAX_PLANES] = buf.fields[0];
   GLuint *pbo = buf.pbo;
 
   DeleteVDPAUTexture420(index);
 
   memset(&im, 0, sizeof(im));
-  memset(&planes, 0, sizeof(YUVPLANE[YuvImage::MAX_PLANES]));
+  memset(&planes, 0, sizeof(CYuvPlane[YuvImage::MAX_PLANES]));
 
   im.cshift_x = 1;
   im.cshift_y = 1;
@@ -395,7 +383,7 @@ bool CRendererVDPAU::CreateVDPAUTexture420(int index)
 
 void CRendererVDPAU::DeleteVDPAUTexture420(int index)
 {
-  YUVBUFFER &buf = m_buffers[index];
+  CPictureBuffer &buf = m_buffers[index];
 
   buf.fields[0][0].id = 0;
   buf.fields[1][0].id = 0;
@@ -406,7 +394,7 @@ void CRendererVDPAU::DeleteVDPAUTexture420(int index)
 
 bool CRendererVDPAU::UploadVDPAUTexture420(int index)
 {
-  YUVBUFFER &buf = m_buffers[index];
+  CPictureBuffer &buf = m_buffers[index];
   YuvImage &im = buf.image;
 
   VDPAU::CVdpauRenderPicture *pic = dynamic_cast<VDPAU::CVdpauRenderPicture*>(buf.videoBuffer);
@@ -425,7 +413,7 @@ bool CRendererVDPAU::UploadVDPAUTexture420(int index)
   // YUV
   for (int f = FIELD_TOP; f<=FIELD_BOT ; f++)
   {
-    YUVPLANE (&planes)[YuvImage::MAX_PLANES] = buf.fields[f];
+    CYuvPlane (&planes)[YuvImage::MAX_PLANES] = buf.fields[f];
 
     planes[0].texwidth  = im.width;
     planes[0].texheight = im.height >> 1;

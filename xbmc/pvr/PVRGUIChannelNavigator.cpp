@@ -1,28 +1,18 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PVRGUIChannelNavigator.h"
 
 #include "GUIInfoManager.h"
 #include "ServiceBroker.h"
+#include "guilib/GUIComponent.h"
 #include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "settings/lib/SettingsManager.h"
 
 #include "pvr/PVRGUIActions.h"
@@ -34,7 +24,7 @@ namespace PVR
 {
   void CPVRGUIChannelNavigator::SelectNextChannel(ChannelSwitchMode eSwitchMode)
   {
-    if (!g_infoManager.GetShowInfo() && eSwitchMode == ChannelSwitchMode::NO_SWITCH)
+    if (!CServiceBroker::GetGUI()->GetInfoManager().GetInfoProviders().GetPlayerInfoProvider().GetShowInfo() && eSwitchMode == ChannelSwitchMode::NO_SWITCH)
     {
       // show info for current channel on first next channel selection.
       ShowInfo(false);
@@ -48,7 +38,7 @@ namespace PVR
 
   void CPVRGUIChannelNavigator::SelectPreviousChannel(ChannelSwitchMode eSwitchMode)
   {
-    if (!g_infoManager.GetShowInfo() && eSwitchMode == ChannelSwitchMode::NO_SWITCH)
+    if (!CServiceBroker::GetGUI()->GetInfoManager().GetInfoProviders().GetPlayerInfoProvider().GetShowInfo() && eSwitchMode == ChannelSwitchMode::NO_SWITCH)
     {
       // show info for current channel on first previous channel selection.
       ShowInfo(false);
@@ -83,7 +73,7 @@ namespace PVR
 
   void CPVRGUIChannelNavigator::SelectChannel(const CPVRChannelPtr channel, ChannelSwitchMode eSwitchMode)
   {
-    g_infoManager.SetCurrentItem(CFileItem(channel));
+    CServiceBroker::GetGUI()->GetInfoManager().SetCurrentItem(CFileItem(channel));
 
     CSingleLock lock(m_critSection);
     m_currentChannel = channel;
@@ -91,7 +81,7 @@ namespace PVR
 
     if (IsPreview() && eSwitchMode == ChannelSwitchMode::INSTANT_OR_DELAYED_SWITCH)
     {
-      int iTimeout = CServiceBroker::GetSettings().GetInt(CSettings::SETTING_PVRPLAYBACK_CHANNELENTRYTIMEOUT);
+      int iTimeout = CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_PVRPLAYBACK_CHANNELENTRYTIMEOUT);
       if (iTimeout > 0)
       {
         // delayed switch
@@ -135,6 +125,11 @@ namespace PVR
     return m_currentChannel != m_playingChannel;
   }
 
+  bool CPVRGUIChannelNavigator::IsPreviewAndShowInfo() const
+  {
+    return IsPreview() && CServiceBroker::GetGUI()->GetInfoManager().GetInfoProviders().GetPlayerInfoProvider().GetShowInfo();
+  }
+
   void CPVRGUIChannelNavigator::ShowInfo()
   {
     ShowInfo(true);
@@ -142,19 +137,22 @@ namespace PVR
 
   void CPVRGUIChannelNavigator::ShowInfo(bool bForce)
   {
-    int iTimeout = CServiceBroker::GetSettings().GetInt(CSettings::SETTING_PVRMENU_DISPLAYCHANNELINFO);
+    int iTimeout = CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_PVRMENU_DISPLAYCHANNELINFO);
 
     if (bForce || iTimeout > 0)
     {
-      g_infoManager.SetShowInfo(true);
+      CServiceBroker::GetGUI()->GetInfoManager().GetInfoProviders().GetPlayerInfoProvider().SetShowInfo(true);
 
-      if (iTimeout > 0)
+      CSingleLock lock(m_critSection);
+
+      if (m_iChannelInfoJobId >= 0)
       {
-        CSingleLock lock(m_critSection);
+        CJobManager::GetInstance().CancelJob(m_iChannelInfoJobId);
+        m_iChannelInfoJobId = -1;
+      }
 
-        if (m_iChannelInfoJobId >= 0)
-          CJobManager::GetInstance().CancelJob(m_iChannelInfoJobId);
-
+      if (!bForce && iTimeout > 0)
+      {
         CPVRChannelInfoTimeoutJob *job = new CPVRChannelInfoTimeoutJob(iTimeout * 1000);
         m_iChannelInfoJobId = CJobManager::GetInstance().AddJob(job, dynamic_cast<IJobCallback*>(job));
       }
@@ -163,7 +161,7 @@ namespace PVR
 
   void CPVRGUIChannelNavigator::HideInfo()
   {
-    g_infoManager.SetShowInfo(false);
+    CServiceBroker::GetGUI()->GetInfoManager().GetInfoProviders().GetPlayerInfoProvider().SetShowInfo(false);
 
     CFileItemPtr item;
 
@@ -176,19 +174,21 @@ namespace PVR
         m_iChannelInfoJobId = -1;
       }
 
-      m_currentChannel = m_playingChannel;
-
-      if (m_currentChannel)
-        item.reset(new CFileItem(m_playingChannel));
+      if (m_currentChannel != m_playingChannel)
+      {
+        m_currentChannel = m_playingChannel;
+        if (m_playingChannel)
+          item.reset(new CFileItem(m_playingChannel));
+      }
     }
 
     if (item)
-      g_infoManager.SetCurrentItem(*item);
+      CServiceBroker::GetGUI()->GetInfoManager().SetCurrentItem(*item);
   }
 
   void CPVRGUIChannelNavigator::ToggleInfo()
   {
-    if (g_infoManager.GetShowInfo())
+    if (CServiceBroker::GetGUI()->GetInfoManager().GetInfoProviders().GetPlayerInfoProvider().GetShowInfo())
       HideInfo();
     else
       ShowInfo();
@@ -203,13 +203,16 @@ namespace PVR
       CSingleLock lock(m_critSection);
 
       m_playingChannel = channel;
-      m_currentChannel = m_playingChannel;
-
-      item.reset(new CFileItem(m_playingChannel));
+      if (m_currentChannel != m_playingChannel)
+      {
+        m_currentChannel = m_playingChannel;
+        if (m_playingChannel)
+          item.reset(new CFileItem(m_playingChannel));
+      }
     }
 
     if (item)
-      g_infoManager.SetCurrentItem(*item);
+      CServiceBroker::GetGUI()->GetInfoManager().SetCurrentItem(*item);
 
     ShowInfo(false);
   }

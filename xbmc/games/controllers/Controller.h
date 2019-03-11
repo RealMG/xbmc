@@ -1,22 +1,11 @@
 /*
- *      Copyright (C) 2015-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include "ControllerFeature.h"
@@ -34,6 +23,7 @@ namespace KODI
 namespace GAME
 {
 class CControllerLayout;
+class CControllerTopology;
 
 using JOYSTICK::FEATURE_TYPE;
 
@@ -54,6 +44,15 @@ public:
    * \return The features
    */
   const std::vector<CControllerFeature>& Features(void) const { return m_features; }
+
+  /*!
+   * \brief Get a feature by its name
+   *
+   * \param name The feature name
+   *
+   * \return The feature, or a feature of type FEATURE_TYPE::UNKNOWN if the name is invalid
+   */
+  const CControllerFeature& GetFeature(const std::string &name) const;
 
   /*!
    * \brief Get the count of controller features matching the specified types
@@ -99,33 +98,21 @@ public:
   bool LoadLayout(void);
 
   /*!
-   * \brief Get the primary layout
-   *
-   * \return The layout of the primary controller model
+   * \brief Get the controller layout
    */
   const CControllerLayout& Layout(void) const { return *m_layout; }
 
   /*!
-   * \brief Get the models defined by this controller
+   * \brief Get the controller's physical topology
    *
-   * \return The models, or empty if no models are defined
+   * This defines how controllers physically connect to each other.
+   *
+   * \return The physical topology of the controller
    */
-  std::vector<std::string> Models() const;
-
-  /*!
-   * \brief Get the layout for the specified model
-   *
-   * \param model The model name
-   *
-   * \return The model layout, or the primary layout if the model name is invalid
-   */
-  const CControllerLayout& GetModel(const std::string& model) const;
+  const CControllerTopology& Topology() const;
 
 private:
-  void LoadModels(const std::string &modelXmlPath);
-
   std::unique_ptr<CControllerLayout> m_layout;
-  std::map<std::string, std::unique_ptr<CControllerLayout>> m_models;
   std::vector<CControllerFeature> m_features;
   bool m_bLoaded = false;
 };

@@ -1,37 +1,23 @@
 /*
- *      Copyright (C) 2005-2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-
-#include "system.h"
 
 #include "VideoSyncGLX.h"
 #include <sstream>
 #include <X11/extensions/Xrandr.h>
-#include "windowing/WindowingFactory.h"
-#include "guilib/GraphicContext.h"
+#include "windowing/X11/WinSystemX11GLContext.h"
+#include "windowing/GraphicContext.h"
 #include "threads/SingleLock.h"
 #include "utils/log.h"
 #include "utils/TimeUtils.h"
 #include <string>
 
 #ifdef TARGET_POSIX
-#include "linux/XTimeUtils.h"
+#include "platform/linux/XTimeUtils.h"
 #endif
 
 Display* CVideoSyncGLX::m_Dpy = NULL;
@@ -52,7 +38,7 @@ void CVideoSyncGLX::OnResetDisplay()
 
 bool CVideoSyncGLX::Setup(PUPDATECLOCK func)
 {
-  CSingleLock lock(g_graphicsContext);
+  CSingleLock lock(m_winSystem.GetGfxContext());
 
   m_glXWaitVideoSyncSGI = NULL;
   m_glXGetVideoSyncSGI = NULL;
@@ -79,7 +65,7 @@ bool CVideoSyncGLX::Setup(PUPDATECLOCK func)
 
   CLog::Log(LOGDEBUG, "CVideoReferenceClock: Setting up GLX");
 
-  g_Windowing.Register(this);
+  m_winSystem.Register(this);
 
   m_displayLost = false;
   m_displayReset = false;
@@ -101,9 +87,9 @@ bool CVideoSyncGLX::Setup(PUPDATECLOCK func)
     return false;
   }
 
-  bool          ExtensionFound = false;
-  std::istringstream Extensions(glXQueryExtensionsString(m_Dpy, g_Windowing.GetCurrentScreen()));
-  std::string        ExtensionStr;
+  bool ExtensionFound = false;
+  std::istringstream Extensions(glXQueryExtensionsString(m_Dpy, m_winSystem.GetScreen()));
+  std::string ExtensionStr;
 
   while (!ExtensionFound)
   {
@@ -121,7 +107,7 @@ bool CVideoSyncGLX::Setup(PUPDATECLOCK func)
     return false;
   }
 
-  m_vInfo = glXChooseVisual(m_Dpy, g_Windowing.GetCurrentScreen(), singleBufferAttributes);
+  m_vInfo = glXChooseVisual(m_Dpy, m_winSystem.GetScreen(), singleBufferAttributes);
   if (!m_vInfo)
   {
     CLog::Log(LOGDEBUG, "CVideoReferenceClock: glXChooseVisual returned NULL");
@@ -130,10 +116,10 @@ bool CVideoSyncGLX::Setup(PUPDATECLOCK func)
 
   Swa.border_pixel = 0;
   Swa.event_mask = StructureNotifyMask;
-  Swa.colormap = XCreateColormap(m_Dpy, g_Windowing.GetWindow(), m_vInfo->visual, AllocNone );
+  Swa.colormap = XCreateColormap(m_Dpy, m_winSystem.GetWindow(), m_vInfo->visual, AllocNone );
   SwaMask = CWBorderPixel | CWColormap | CWEventMask;
 
-  m_Window = XCreateWindow(m_Dpy, g_Windowing.GetWindow(), 0, 0, 256, 256, 0,
+  m_Window = XCreateWindow(m_Dpy, m_winSystem.GetWindow(), 0, 0, 256, 256, 0,
                            m_vInfo->depth, InputOutput, m_vInfo->visual, SwaMask, &Swa);
 
   m_Context = glXCreateContext(m_Dpy, m_vInfo, NULL, True);
@@ -257,7 +243,7 @@ void CVideoSyncGLX::Cleanup()
   CLog::Log(LOGDEBUG, "CVideoReferenceClock: Cleaning up GLX");
 
   {
-    CSingleLock lock(g_graphicsContext);
+    CSingleLock lock(m_winSystem.GetGfxContext());
 
     if (m_vInfo)
     {
@@ -278,11 +264,11 @@ void CVideoSyncGLX::Cleanup()
   }
 
   m_lostEvent.Set();
-  g_Windowing.Unregister(this);
+  m_winSystem.Unregister(this);
 }
 
 float CVideoSyncGLX::GetFps()
 {
-  m_fps = g_graphicsContext.GetFPS();
+  m_fps = m_winSystem.GetGfxContext().GetFPS();
   return m_fps;
 }

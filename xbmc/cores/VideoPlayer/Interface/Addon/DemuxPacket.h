@@ -1,25 +1,14 @@
-#pragma once
-
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
+#include "TimingConstants.h"
 #include <cstdint>
 #include <memory>
 
@@ -32,24 +21,20 @@ typedef struct DemuxPacket
 {
   DemuxPacket() = default;
 
-  DemuxPacket(unsigned char *pData, int const iSize, double const pts, double const dts)
-    : pData(pData)
-    , iSize(iSize)
-    , pts(pts)
-    , dts(dts)
-  {};
+  uint8_t *pData = nullptr;
+  int iSize = 0;
+  int iStreamId = -1;
+  int64_t demuxerId = -1; // id of the demuxer that created the packet
+  int iGroupId = -1; // the group this data belongs to, used to group data from different streams together
 
-  unsigned char *pData;   // data
-  int iSize;     // data size
-  int iStreamId; // integer representing the stream index
-  int64_t demuxerId; // id of the demuxer that created the packet
-  int iGroupId;  // the group this data belongs to, used to group data from different streams together
+  void *pSideData = nullptr;
+  int iSideDataElems = 0;
 
-  double pts; // pts in DVD_TIME_BASE
-  double dts; // dts in DVD_TIME_BASE
-  double duration; // duration in DVD_TIME_BASE if available
-
-  int dispTime;
+  double pts = DVD_NOPTS_VALUE;
+  double dts = DVD_NOPTS_VALUE;
+  double duration = 0; // duration in DVD_TIME_BASE if available
+  int dispTime = 0;
+  bool recoveryPoint = false;
 
   std::shared_ptr<DemuxCryptoInfo> cryptoInfo;
 } DemuxPacket;

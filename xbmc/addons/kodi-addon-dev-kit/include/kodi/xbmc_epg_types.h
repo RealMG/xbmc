@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <string.h>
 #include <time.h>
@@ -27,10 +16,8 @@
 #undef PRAGMA_PACK_END
 
 #if defined(__GNUC__)
-#if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)
 #define ATTRIBUTE_PACKED __attribute__ ((packed))
 #define PRAGMA_PACK 0
-#endif
 #endif
 
 #if !defined(ATTRIBUTE_PACKED)
@@ -58,8 +45,11 @@
 #define EPG_EVENT_CONTENTMASK_USERDEFINED              0xF0
 //@}
 
-/* Set EPGTAG.iGenreType to EPG_GENRE_USE_STRING to transfer genre strings to XBMC */
+/* Set EPGTAG.iGenreType to EPG_GENRE_USE_STRING to transfer genre strings to Kodi */
 #define EPG_GENRE_USE_STRING                           0x100
+
+/* Separator to use in strings containing different tokens, for example writers, directors, actors of an event. */
+#define EPG_STRING_TOKEN_SEPARATOR ","
 
 #ifdef __cplusplus
 extern "C" {
@@ -98,15 +88,15 @@ extern "C" {
     const char *  strPlotOutline;      /*!< @brief (optional) plot outline */
     const char *  strPlot;             /*!< @brief (optional) plot */
     const char *  strOriginalTitle;    /*!< @brief (optional) originaltitle */
-    const char *  strCast;             /*!< @brief (optional) cast */
-    const char *  strDirector;         /*!< @brief (optional) director */
-    const char *  strWriter;           /*!< @brief (optional) writer */
+    const char *  strCast;             /*!< @brief (optional) cast. Use EPG_STRING_TOKEN_SEPARATOR to separate different persons. */
+    const char *  strDirector;         /*!< @brief (optional) director(s). Use EPG_STRING_TOKEN_SEPARATOR to separate different persons. */
+    const char *  strWriter;           /*!< @brief (optional) writer(s). Use EPG_STRING_TOKEN_SEPARATOR to separate different persons. */
     int           iYear;               /*!< @brief (optional) year */
     const char *  strIMDBNumber;       /*!< @brief (optional) IMDBNumber */
     const char *  strIconPath;         /*!< @brief (optional) icon path */
     int           iGenreType;          /*!< @brief (optional) genre type */
     int           iGenreSubType;       /*!< @brief (optional) genre sub type */
-    const char *  strGenreDescription; /*!< @brief (optional) genre. Will be used only when iGenreType = EPG_GENRE_USE_STRING */
+    const char *  strGenreDescription; /*!< @brief (optional) genre. Will be used only when iGenreType == EPG_GENRE_USE_STRING. Use EPG_STRING_TOKEN_SEPARATOR to separate different genres. */
     time_t        firstAired;          /*!< @brief (optional) first aired in UTC */
     int           iParentalRating;     /*!< @brief (optional) parental rating */
     int           iStarRating;         /*!< @brief (optional) star rating */

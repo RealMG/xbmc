@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <stdarg.h>     /* va_list, va_start, va_arg, va_end */
 #include <cstdlib>
@@ -40,13 +29,9 @@
 #undef PRAGMA_PACK_END
 
 #if defined(__GNUC__)
-  #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)
-    #define ATTRIBUTE_PACKED __attribute__ ((packed))
-    #define PRAGMA_PACK 0
-  #if __GNUC__ >= 4
-    #define ATTRIBUTE_HIDDEN __attribute__ ((visibility ("hidden")))
-  #endif
-  #endif
+  #define ATTRIBUTE_PACKED __attribute__ ((packed))
+  #define PRAGMA_PACK 0
+  #define ATTRIBUTE_HIDDEN __attribute__ ((visibility ("hidden")))
 #endif
 
 #if !defined(ATTRIBUTE_PACKED)
@@ -56,6 +41,20 @@
 
 #if !defined(ATTRIBUTE_HIDDEN)
   #define ATTRIBUTE_HIDDEN
+#endif
+
+#ifdef _MSC_VER
+    #define ATTRIBUTE_FORCEINLINE __forceinline
+#elif defined(__GNUC__)
+    #define ATTRIBUTE_FORCEINLINE inline __attribute__((__always_inline__))
+#elif defined(__CLANG__)
+    #if __has_attribute(__always_inline__)
+        #define ATTRIBUTE_FORCEINLINE inline __attribute__((__always_inline__))
+    #else
+        #define ATTRIBUTE_FORCEINLINE inline
+    #endif
+#else
+    #define ATTRIBUTE_FORCEINLINE inline
 #endif
 
 #include "versions.h"
@@ -180,6 +179,8 @@ typedef struct AddonToKodiFuncTable_Addon
   AddonToKodiFuncTable_kodi_filesystem* kodi_filesystem;
   AddonToKodiFuncTable_kodi_gui* kodi_gui;
   AddonToKodiFuncTable_kodi_network *kodi_network;
+
+  void* (*get_interface)(void* kodiBase, const char *name, const char *version);
 } AddonToKodiFuncTable_Addon;
 
 /*
@@ -192,6 +193,7 @@ typedef struct KodiToAddonFuncTable_Addon
   ADDON_STATUS (*create_instance)(int instanceType, const char* instanceID, KODI_HANDLE instance, KODI_HANDLE* addonInstance, KODI_HANDLE parent);
   void (*destroy_instance)(int instanceType, KODI_HANDLE instance);
   ADDON_STATUS (*set_setting)(const char *settingName, const void *settingValue);
+  ADDON_STATUS(*create_instance_ex)(int instanceType, const char* instanceID, KODI_HANDLE instance, KODI_HANDLE* addonInstance, KODI_HANDLE parent, const char* version);
 } KodiToAddonFuncTable_Addon;
 
 /*
@@ -250,6 +252,11 @@ public:
     return ADDON_STATUS_NOT_IMPLEMENTED;
   }
 
+  virtual ADDON_STATUS CreateInstanceEx(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance, const std::string &version)
+  {
+    return CreateInstance(instanceType, instanceID, instance, addonInstance);
+  }
+
   const ADDON_TYPE m_type;
 };
 } /* namespace addon */
@@ -265,11 +272,11 @@ public:
   explicit CSettingValue(const void *settingValue) : m_settingValue(settingValue) {}
 
   bool empty() const { return (m_settingValue == nullptr) ? true : false; }
-  std::string GetString() const { return (char*)m_settingValue; }
-  int GetInt() const { return *(int*)m_settingValue; }
-  unsigned int GetUInt() const { return *(unsigned int*)m_settingValue; }
-  bool GetBoolean() const { return *(bool*)m_settingValue; }
-  float GetFloat() const { return *(float*)m_settingValue; }
+  std::string GetString() const { return (const char*)m_settingValue; }
+  int GetInt() const { return *(const int*)m_settingValue; }
+  unsigned int GetUInt() const { return *(const unsigned int*)m_settingValue; }
+  bool GetBoolean() const { return *(const bool*)m_settingValue; }
+  float GetFloat() const { return *(const float*)m_settingValue; }
 
 private:
   const void *m_settingValue;
@@ -291,6 +298,9 @@ public:
     CAddonBase::m_interface->toAddon->create_instance = ADDONBASE_CreateInstance;
     CAddonBase::m_interface->toAddon->destroy_instance = ADDONBASE_DestroyInstance;
     CAddonBase::m_interface->toAddon->set_setting = ADDONBASE_SetSetting;
+    // If version is present, we know that kodi has create_instance_ex implemented
+    if (!CAddonBase::m_strGlobalApiVersion.empty())
+      CAddonBase::m_interface->toAddon->create_instance_ex = ADDONBASE_CreateInstanceEx;
   }
 
   virtual ~CAddonBase() = default;
@@ -319,8 +329,14 @@ public:
     return ADDON_STATUS_UNKNOWN;
   }
 
+  virtual ADDON_STATUS CreateInstanceEx(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance, const std::string &version)
+  {
+    return CreateInstance(instanceType, instanceID, instance, addonInstance);
+  }
+
   /* Global variables of class */
   static AddonGlobalInterface* m_interface; // Interface function table to hold addresses on add-on and from kodi
+  static std::string m_strGlobalApiVersion;
 
 /*private:*/ /* Needed public as long the old call functions becomes used! */
   static inline void ADDONBASE_Destroy()
@@ -338,16 +354,21 @@ public:
 
   static inline ADDON_STATUS ADDONBASE_CreateInstance(int instanceType, const char* instanceID, KODI_HANDLE instance, KODI_HANDLE* addonInstance, KODI_HANDLE parent)
   {
+    return ADDONBASE_CreateInstanceEx(instanceType, instanceID, instance, addonInstance, parent, "");
+  }
+
+  static inline ADDON_STATUS ADDONBASE_CreateInstanceEx(int instanceType, const char* instanceID, KODI_HANDLE instance, KODI_HANDLE* addonInstance, KODI_HANDLE parent, const char* version)
+  {
     ADDON_STATUS status = ADDON_STATUS_NOT_IMPLEMENTED;
     if (parent != nullptr)
-      status = static_cast<IAddonInstance*>(parent)->CreateInstance(instanceType, instanceID, instance, *addonInstance);
+      status = static_cast<IAddonInstance*>(parent)->CreateInstanceEx(instanceType, instanceID, instance, *addonInstance, version);
     if (status == ADDON_STATUS_NOT_IMPLEMENTED)
-      status = CAddonBase::m_interface->addonBase->CreateInstance(instanceType, instanceID, instance, *addonInstance);
+      status = CAddonBase::m_interface->addonBase->CreateInstanceEx(instanceType, instanceID, instance, *addonInstance, version);
     if (*addonInstance == nullptr)
-      throw std::logic_error("kodi::addon::CAddonBase CreateInstance returns a empty instance pointer!");
+      throw std::logic_error("kodi::addon::CAddonBase CreateInstanceEx returns a empty instance pointer!");
 
     if (static_cast<::kodi::addon::IAddonInstance*>(*addonInstance)->m_type != instanceType)
-      throw std::logic_error("kodi::addon::CAddonBase CreateInstance with difference on given and returned instance type!");
+      throw std::logic_error("kodi::addon::CAddonBase CreateInstanceEx with difference on given and returned instance type!");
 
     return status;
   }
@@ -605,6 +626,33 @@ inline std::string TranslateAddonStatus(ADDON_STATUS status)
 } /* namespace kodi */
 //----------------------------------------------------------------------------
 
+//==============================================================================
+namespace kodi {
+///
+/// \ingroup cpp_kodi
+/// @brief Returns a function table to a named interface
+///
+/// @return pointer to struct containing interface functions
+///
+///
+/// ------------------------------------------------------------------------
+///
+/// **Example:**
+/// ~~~~~~~~~~~~~{.cpp}
+/// #include <kodi/General.h>
+/// #include <kodi/platform/foo.h>
+/// ...
+/// FuncTable_foo *table = kodi::GetPlatformInfo(foo_name, foo_version);
+/// ...
+/// ~~~~~~~~~~~~~
+///
+inline void* GetInterface(const std::string &name, const std::string &version)
+{
+  AddonToKodiFuncTable_Addon* toKodi = ::kodi::addon::CAddonBase::m_interface->toKodi;
+
+  return toKodi->get_interface(toKodi->kodiBase, name.c_str(), version.c_str());
+}
+} /* namespace kodi */
 
 /*! addon creation macro
  * @todo cleanup this stupid big macro
@@ -622,6 +670,11 @@ inline std::string TranslateAddonStatus(ADDON_STATUS status)
     kodi::addon::CAddonBase::m_interface->addonBase = new AddonClass; \
     return kodi::addon::CAddonBase::m_interface->addonBase->Create(); \
   } \
+  extern "C" __declspec(dllexport) ADDON_STATUS ADDON_CreateEx(KODI_HANDLE addonInterface, const char* globalApiVersion, void *unused) \
+  { \
+    kodi::addon::CAddonBase::m_strGlobalApiVersion = globalApiVersion; \
+    return ADDON_Create(addonInterface, unused); \
+  } \
   extern "C" __declspec(dllexport) void ADDON_Destroy() \
   { \
     kodi::addon::CAddonBase::ADDONBASE_Destroy(); \
@@ -638,4 +691,10 @@ inline std::string TranslateAddonStatus(ADDON_STATUS status)
   { \
     return kodi::addon::GetTypeVersion(type); \
   } \
-  AddonGlobalInterface* kodi::addon::CAddonBase::m_interface = nullptr;
+  extern "C" __declspec(dllexport) const char* ADDON_GetTypeMinVersion(int type) \
+  { \
+    return kodi::addon::GetTypeMinVersion(type); \
+  } \
+  AddonGlobalInterface* kodi::addon::CAddonBase::m_interface = nullptr; \
+  std::string kodi::addon::CAddonBase::m_strGlobalApiVersion;
+

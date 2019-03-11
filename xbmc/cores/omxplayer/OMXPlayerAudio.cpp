@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "OMXPlayerAudio.h"
@@ -24,7 +12,7 @@
 #include <unistd.h>
 #include <iomanip>
 
-#include "linux/XMemUtils.h"
+#include "platform/linux/XMemUtils.h"
 #include "utils/BitstreamStats.h"
 
 #include "DVDDemuxers/DVDDemuxUtils.h"
@@ -35,10 +23,11 @@
 #include "utils/TimeUtils.h"
 #include "cores/VideoPlayer/Interface/Addon/TimingConstants.h"
 
-#include "linux/RBP.h"
+#include "platform/linux/RBP.h"
 #include "ServiceBroker.h"
 #include "cores/AudioEngine/Interfaces/AE.h"
 #include "cores/DataCacheCore.h"
+#include "system.h"
 
 #include <algorithm>
 #include <iostream>
@@ -64,6 +53,7 @@ OMXPlayerAudio::OMXPlayerAudio(OMXClock *av_clock, CDVDMessageQueue& parent, CPr
 : CThread("OMXPlayerAudio"), IDVDStreamPlayerAudio(processInfo)
 , m_messageQueue("audio")
 , m_messageParent(parent)
+, m_omxAudio(processInfo)
 {
   m_av_clock      = av_clock;
   m_pAudioCodec   = NULL;
@@ -230,7 +220,7 @@ bool OMXPlayerAudio::Decode(DemuxPacket *pkt, bool bDropPacket, bool bTrickPlay)
     double dts = pkt->dts, pts=pkt->pts;
     while(!m_bStop && data_len > 0)
     {
-      int len = m_pAudioCodec->Decode((BYTE *)data_dec, data_len, dts, pts);
+      int len = m_pAudioCodec->Decode((unsigned char*)data_dec, data_len, dts, pts);
       if( (len < 0) || (len >  data_len) )
       {
         m_pAudioCodec->Reset();
@@ -498,12 +488,12 @@ AEAudioFormat OMXPlayerAudio::GetDataFormat(CDVDStreamInfo hints)
       format.m_streamInfo.m_type = CAEStreamInfo::STREAM_TYPE_NULL;
   }
 
-  m_passthrough = CServiceBroker::GetActiveAE().SupportsRaw(format);
+  m_passthrough = CServiceBroker::GetActiveAE()->SupportsRaw(format);
 
   if (!m_passthrough && hints.codec == AV_CODEC_ID_DTS)
   {
     format.m_streamInfo.m_type = CAEStreamInfo::STREAM_TYPE_DTSHD_CORE;
-    m_passthrough = CServiceBroker::GetActiveAE().SupportsRaw(format);
+    m_passthrough = CServiceBroker::GetActiveAE()->SupportsRaw(format);
   }
 
   if(!m_passthrough)

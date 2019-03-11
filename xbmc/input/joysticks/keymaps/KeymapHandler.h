@@ -1,26 +1,15 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
-#include "input/joysticks/IButtonSequence.h"
-#include "input/joysticks/IInputHandler.h"
+#include "input/joysticks/interfaces/IButtonSequence.h"
+#include "input/joysticks/interfaces/IInputHandler.h"
 #include "input/joysticks/interfaces/IKeymapHandler.h"
 #include "input/joysticks/JoystickTypes.h"
 
@@ -63,6 +52,8 @@ namespace JOYSTICK
     virtual bool OnButtonMotion(const FeatureName& feature, float magnitude, unsigned int motionTimeMs) override;
     virtual bool OnAnalogStickMotion(const FeatureName& feature, float x, float y, unsigned int motionTimeMs) override;
     virtual bool OnAccelerometerMotion(const FeatureName& feature, float x, float y, float z) override;
+    virtual bool OnWheelMotion(const FeatureName& feature, float position, unsigned int motionTimeMs) override;
+    virtual bool OnThrottleMotion(const FeatureName& feature, float position, unsigned int motionTimeMs) override;
 
   protected:
     // Keep track of cheat code presses
@@ -72,6 +63,14 @@ namespace JOYSTICK
     // Analog stick helper functions
     bool ActivateDirection(const FeatureName& feature, float magnitude, ANALOG_STICK_DIRECTION dir, unsigned int motionTimeMs);
     void DeactivateDirection(const FeatureName& feature, ANALOG_STICK_DIRECTION dir);
+
+    // Wheel helper functions
+    bool ActivateDirection(const FeatureName& feature, float magnitude, WHEEL_DIRECTION dir, unsigned int motionTimeMs);
+    void DeactivateDirection(const FeatureName& feature, WHEEL_DIRECTION dir);
+
+    // Throttle helper functions
+    bool ActivateDirection(const FeatureName& feature, float magnitude, THROTTLE_DIRECTION dir, unsigned int motionTimeMs);
+    void DeactivateDirection(const FeatureName& feature, THROTTLE_DIRECTION dir);
 
     // Helper functions
     IKeyHandler *GetKeyHandler(const std::string &keyName);

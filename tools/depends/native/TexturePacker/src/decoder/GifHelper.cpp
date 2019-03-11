@@ -18,10 +18,10 @@
  *
  */
 
-#include "GifHelper.h"
 #include <algorithm>
-#include <stdlib.h>
+#include <cstdlib>
 #include <cstring>
+#include "GifHelper.h"
 
 #define UNSIGNED_LITTLE_ENDIAN(lo, hi)	((lo) | ((hi) << 8))
 #define GIF_MAX_MEMORY 82944000U // about 79 MB, which is equivalent to 10 full hd frames.
@@ -221,7 +221,7 @@ bool GifHelper::LoadGif(const char* file)
     {
       fprintf(stderr, "Gif::LoadGif(): Could not extract any frame. File %s\n", m_filename.c_str());
       return false;
-    } 
+    }
     else if (extractedFrames < (int)m_numFrames)
     {
       fprintf(stderr, "Gif::LoadGif(): Could only extract %d/%d frames. File %s\n", extractedFrames, m_numFrames, m_filename.c_str());
@@ -420,7 +420,7 @@ bool GifHelper::PrepareTemplate(GifFrame &frame)
   case DISPOSE_PREVIOUS:
   {
 
-    /* 
+    /*
     * This disposal method makes no sense for the first frame
     * Since browsers etc. handle that too, we'll fall back to DISPOSE_DO_NOT
     */

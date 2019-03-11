@@ -7,19 +7,26 @@ set(CORE_MAIN_SOURCE ${CMAKE_SOURCE_DIR}/xbmc/platform/darwin/ios/XBMCApplicatio
 set(ARCH_DEFINES -D_LINUX -DTARGET_POSIX -DTARGET_DARWIN -DTARGET_DARWIN_IOS)
 set(SYSTEM_DEFINES -D_REENTRANT -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
                    -D__STDC_CONSTANT_MACROS)
-set(PLATFORM_DIR linux)
+set(PLATFORM_DIR platform/linux)
 set(CMAKE_SYSTEM_NAME Darwin)
 if(WITH_ARCH)
   set(ARCH ${WITH_ARCH})
 else()
-  if(CPU STREQUAL armv7 OR CPU STREQUAL arm64)
+  if(CPU STREQUAL armv7)
     set(CMAKE_OSX_ARCHITECTURES ${CPU})
-    set(ARCH arm-osx)
+    set(ARCH arm)
+    set(NEON True)
+  elseif(CPU STREQUAL arm64)
+    set(CMAKE_OSX_ARCHITECTURES ${CPU})
+    set(ARCH aarch64)
     set(NEON True)
   else()
     message(SEND_ERROR "Unknown CPU: ${CPU}")
   endif()
 endif()
+
+# Additional SYSTEM_DEFINES
+list(APPEND SYSTEM_DEFINES -DHAS_LINUX_NETWORK -DHAS_ZEROCONF)
 
 find_package(CXX11 REQUIRED)
 
@@ -33,10 +40,9 @@ list(APPEND DEPLIBS "-framework CoreFoundation" "-framework CoreVideo"
                     "-framework CoreMedia" "-framework AVFoundation"
                     "-framework VideoToolbox")
 
-set(ENABLE_DVDCSS OFF CACHE BOOL "" FORCE)
 set(ENABLE_OPTICAL OFF CACHE BOOL "" FORCE)
 
-set(CMAKE_XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "6.0")
+set(CMAKE_XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "9.0")
 set(CMAKE_XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2")
 
 set(CMAKE_XCODE_ATTRIBUTE_INLINES_ARE_PRIVATE_EXTERN OFF)

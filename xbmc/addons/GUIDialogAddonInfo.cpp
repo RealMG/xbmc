@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIDialogAddonInfo.h"
@@ -28,26 +16,25 @@
 #include "ServiceBroker.h"
 #include "filesystem/Directory.h"
 #include "addons/settings/GUIDialogAddonSettings.h"
-#include "cores/AudioEngine/Engines/ActiveAE/AudioDSPAddons/ActiveAEDSP.h"
 #include "dialogs/GUIDialogContextMenu.h"
-#include "dialogs/GUIDialogTextViewer.h"
 #include "dialogs/GUIDialogSelect.h"
 #include "dialogs/GUIDialogYesNo.h"
 #include "games/GameUtils.h"
 #include "guilib/LocalizeStrings.h"
-#include "GUIUserMessages.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
 #include "input/Key.h"
 #include "messaging/helpers/DialogHelper.h"
 #include "messaging/helpers/DialogOKHelper.h"
 #include "pictures/GUIWindowSlideShow.h"
 #include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
+#include "utils/Digest.h"
 #include "utils/JobManager.h"
-#include "utils/FileOperationJob.h"
 #include "utils/StringUtils.h"
-#include "utils/URIUtils.h"
 #include "utils/log.h"
 #include "utils/Variant.h"
+#include "GUIPassword.h"
 #include "Util.h"
 #include "interfaces/builtins/Builtins.h"
 
@@ -71,8 +58,7 @@ using namespace KODI::MESSAGING;
 using KODI::MESSAGING::HELPERS::DialogResponse;
 
 CGUIDialogAddonInfo::CGUIDialogAddonInfo(void)
-  : CGUIDialog(WINDOW_DIALOG_ADDON_INFO, "DialogAddonInfo.xml"),
-  m_addonEnabled(false)
+  : CGUIDialog(WINDOW_DIALOG_ADDON_INFO, "DialogAddonInfo.xml")
 {
   m_item = CFileItemPtr(new CFileItem);
   m_loadType = KEEP_IN_MEMORY;
@@ -122,7 +108,7 @@ bool CGUIDialogAddonInfo::OnMessage(CGUIMessage& message)
       }
       else if (iControl == CONTROL_BTN_DEPENDENCIES)
       {
-        ADDONDEPS deps = CServiceBroker::GetAddonMgr().GetDepsRecursive(m_item->GetAddonInfo()->ID());
+        auto deps = CServiceBroker::GetAddonMgr().GetDepsRecursive(m_item->GetAddonInfo()->ID());
         ShowDependencyList(deps, true);
         return true;
       }
@@ -175,7 +161,7 @@ void CGUIDialogAddonInfo::UpdateControls()
   bool isInstalled = NULL != m_localAddon.get();
   m_addonEnabled = m_localAddon && !CServiceBroker::GetAddonMgr().IsAddonDisabled(m_localAddon->ID());
   bool canDisable = isInstalled && CServiceBroker::GetAddonMgr().CanAddonBeDisabled(m_localAddon->ID());
-  bool canInstall = !isInstalled && m_item->GetAddonInfo()->Broken().empty();
+  bool canInstall = !isInstalled && !m_item->GetAddonInfo()->IsBroken();
   bool canUninstall = m_localAddon && CServiceBroker::GetAddonMgr().CanUninstall(m_localAddon);
 
   CONTROL_ENABLE_ON_CONDITION(CONTROL_BTN_INSTALL, canInstall || canUninstall);
@@ -194,7 +180,7 @@ void CGUIDialogAddonInfo::UpdateControls()
 
   CONTROL_ENABLE_ON_CONDITION(CONTROL_BTN_UPDATE, isInstalled);
 
-  bool autoUpdatesOn = CServiceBroker::GetSettings().GetInt(CSettings::SETTING_ADDONS_AUTOUPDATES) == AUTO_UPDATES_ON;
+  bool autoUpdatesOn = CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_ADDONS_AUTOUPDATES) == AUTO_UPDATES_ON;
   CONTROL_ENABLE_ON_CONDITION(CONTROL_BTN_AUTOUPDATE, isInstalled && autoUpdatesOn);
   SET_CONTROL_SELECTED(GetID(), CONTROL_BTN_AUTOUPDATE, isInstalled && autoUpdatesOn &&
       !CServiceBroker::GetAddonMgr().IsBlacklisted(m_localAddon->ID()));
@@ -206,7 +192,7 @@ void CGUIDialogAddonInfo::UpdateControls()
 
   CONTROL_ENABLE_ON_CONDITION(CONTROL_BTN_SETTINGS, isInstalled && m_localAddon->HasSettings());
 
-  ADDONDEPS deps = CServiceBroker::GetAddonMgr().GetDepsRecursive(m_item->GetAddonInfo()->ID());
+  auto deps = CServiceBroker::GetAddonMgr().GetDepsRecursive(m_item->GetAddonInfo()->ID());
   CONTROL_ENABLE_ON_CONDITION(CONTROL_BTN_DEPENDENCIES, !deps.empty());
 
   CFileItemList items;
@@ -225,7 +211,7 @@ static const std::string LOCAL_CACHE = "\\0_local_cache"; // \0 to give it the l
 
 int CGUIDialogAddonInfo::AskForVersion(std::vector<std::pair<AddonVersion, std::string>>& versions)
 {
-  auto dialog = g_windowManager.GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
+  auto dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
   dialog->Reset();
   dialog->SetHeading(CVariant{21338});
   dialog->SetUseDetails(true);
@@ -284,8 +270,8 @@ void CGUIDialogAddonInfo::OnUpdate()
           std::string path(items[i]->GetPath());
           if (database.GetPackageHash(m_localAddon->ID(), items[i]->GetPath(), hash))
           {
-            std::string md5 = CUtil::GetFileMD5(path);
-            if (md5 == hash)
+            std::string md5 = CUtil::GetFileDigest(path, KODI::UTILITY::CDigest::Type::MD5);
+            if (StringUtils::EqualsNoCase(md5, hash))
               versions.push_back(std::make_pair(AddonVersion(versionString), LOCAL_CACHE));
           }
         }
@@ -350,7 +336,7 @@ void CGUIDialogAddonInfo::OnInstall()
   if (i != -1)
   {
     Close();
-    ADDONDEPS deps = CServiceBroker::GetAddonMgr().GetDepsRecursive(m_item->GetAddonInfo()->ID());
+    auto deps = CServiceBroker::GetAddonMgr().GetDepsRecursive(m_item->GetAddonInfo()->ID());
     if (!deps.empty() && !ShowDependencyList(deps, false))
       return;
 
@@ -412,8 +398,9 @@ bool CGUIDialogAddonInfo::PromptIfDependency(int heading, int line2)
   for (VECADDONS::const_iterator it  = addons.begin();
        it != addons.end();++it)
   {
-    ADDONDEPS::const_iterator i = (*it)->GetDeps().find(m_localAddon->ID());
-    if (i != (*it)->GetDeps().end() && !i->second.second) // non-optional dependency
+    auto i = std::find_if((*it)->GetDependencies().begin(), (*it)->GetDependencies().end(),
+        [&](const DependencyInfo& other){return other.id == m_localAddon->ID();});
+    if (i != (*it)->GetDependencies().end() && !i->optional) // non-optional dependency
       deps.push_back((*it)->Name());
   }
 
@@ -478,38 +465,47 @@ void CGUIDialogAddonInfo::OnSettings()
   CGUIDialogAddonSettings::ShowForAddon(m_localAddon);
 }
 
-bool CGUIDialogAddonInfo::ShowDependencyList(const ADDONDEPS& deps, bool reactivate)
+bool CGUIDialogAddonInfo::ShowDependencyList(const std::vector<ADDON::DependencyInfo>& deps, bool reactivate)
 {
-  auto pDialog = g_windowManager.GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
+  auto pDialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
   CFileItemList items;
   for (auto& it : deps)
   {
-    AddonPtr dep_addon, local_addon;
-    CServiceBroker::GetAddonMgr().FindInstallableById(it.first, dep_addon);
-    CServiceBroker::GetAddonMgr().GetAddon(it.first, local_addon);
-    if (dep_addon)
+    AddonPtr dep_addon, local_addon, info_addon;
+    // Find add-on in repositories
+    CServiceBroker::GetAddonMgr().FindInstallableById(it.id, dep_addon);
+    // Find add-on in local installation
+    CServiceBroker::GetAddonMgr().GetAddon(it.id, local_addon);
+
+    // All combinations of dep_addon and local_addon validity are possible and information
+    // must be displayed even when there is no dep_addon.
+    // info_addon is the add-on to take the information to display (name, icon) from. The
+    // version in the repository is preferred because it might contain more recent data.
+    info_addon = dep_addon ? dep_addon : local_addon;
+
+    if (info_addon)
     {
-      CFileItemPtr item(new CFileItem(dep_addon->Name()));
+      CFileItemPtr item(new CFileItem(info_addon->Name()));
       std::stringstream str;
-      str << it.first << " " << it.second.first.asString();
-      if ((it.second.second && !local_addon) || (!it.second.second && local_addon))
+      str << it.id << " " << it.requiredVersion.asString();
+      if ((it.optional && !local_addon) || (!it.optional && local_addon))
         str << " " << StringUtils::Format(g_localizeStrings.Get(39022).c_str(),
                                           local_addon ? g_localizeStrings.Get(39019).c_str()
                                                       : g_localizeStrings.Get(39018).c_str());
-      else if (it.second.second && local_addon)
+      else if (it.optional && local_addon)
         str << " " << StringUtils::Format(g_localizeStrings.Get(39023).c_str(),
                                           g_localizeStrings.Get(39019).c_str(),
                                           g_localizeStrings.Get(39018).c_str());
 
       item->SetLabel2(str.str());
-      item->SetIconImage(dep_addon->Icon());
-      item->SetProperty("addon_id", it.first);
+      item->SetIconImage(info_addon->Icon());
+      item->SetProperty("addon_id", it.id);
       items.Add(item);
     }
     else
     {
-      CFileItemPtr item(new CFileItem(it.first));
-      item->SetLabel2(g_localizeStrings.Get(161));
+      CFileItemPtr item(new CFileItem(it.id));
+      item->SetLabel2(g_localizeStrings.Get(10005)); // Not available
       items.Add(item);
     }
   }
@@ -555,13 +551,13 @@ bool CGUIDialogAddonInfo::ShowForItem(const CFileItemPtr& item)
   if (!item)
     return false;
 
-  CGUIDialogAddonInfo* dialog = g_windowManager.GetWindow<CGUIDialogAddonInfo>(WINDOW_DIALOG_ADDON_INFO);
+  CGUIDialogAddonInfo* dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogAddonInfo>(WINDOW_DIALOG_ADDON_INFO);
   if (!dialog)
     return false;
   if (!dialog->SetItem(item))
     return false;
 
-  dialog->Open(); 
+  dialog->Open();
   return true;
 }
 

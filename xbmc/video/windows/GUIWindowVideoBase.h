@@ -1,24 +1,12 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "windows/GUIMediaWindow.h"
 #include "video/VideoDatabase.h"
@@ -45,7 +33,7 @@ public:
   bool OnAction(const CAction &action) override;
 
   void PlayMovie(const CFileItem *item, const std::string &player = "");
-  static void GetResumeItemOffset(const CFileItem *item, int& startoffset, int& partNumber);
+  static void GetResumeItemOffset(const CFileItem *item, int64_t& startoffset, int& partNumber);
   static bool HasResumeItemOffset(const CFileItem *item);
 
   void AddToDatabase(int iItem);
@@ -97,7 +85,7 @@ protected:
 
   void GetContextButtons(int itemNumber, CContextButtons &buttons) override;
   bool OnContextButton(int itemNumber, CONTEXT_BUTTON button) override;
-  virtual void OnQueueItem(int iItem);
+  virtual void OnQueueItem(int iItem, bool first = false);
   virtual void OnDeleteItem(CFileItemPtr pItem);
   void OnDeleteItem(int iItem) override;
   virtual void DoSearch(const std::string& strSearch, CFileItemList& items) {};

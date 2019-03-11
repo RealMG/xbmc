@@ -1,4 +1,4 @@
-if(CORE_SYSTEM_NAME STREQUAL windows)
+if(CORE_SYSTEM_NAME STREQUAL windows OR CORE_SYSTEM_NAME STREQUAL windowsstore)
   list(APPEND SOURCES DXVAHD.cpp)
   list(APPEND HEADERS DXVAHD.h)
 endif()
@@ -42,16 +42,24 @@ if(AML_FOUND)
   list(APPEND HEADERS RendererAML.h)
 endif()
 
-if(IMX_FOUND)
-  list(APPEND SOURCES RendererIMX.cpp)
-  list(APPEND HEADERS RendererIMX.h)
-endif()
-
 if(CORE_SYSTEM_NAME STREQUAL android)
   list(APPEND SOURCES RendererMediaCodec.cpp
                       RendererMediaCodecSurface.cpp)
   list(APPEND HEADERS RendererMediaCodec.h
                       RendererMediaCodecSurface.h)
+endif()
+
+if(CORE_PLATFORM_NAME_LC STREQUAL gbm)
+  list(APPEND SOURCES RendererDRMPRIME.cpp
+                      VideoLayerBridgeDRMPRIME.cpp)
+  list(APPEND HEADERS RendererDRMPRIME.h
+                      VideoLayerBridgeDRMPRIME.h)
+  if(OPENGLES_FOUND)
+    list(APPEND SOURCES RendererDRMPRIMEGLES.cpp
+                        DRMPRIMEEGL.cpp)
+    list(APPEND HEADERS RendererDRMPRIMEGLES.h
+                        DRMPRIMEEGL.h)
+  endif()
 endif()
 
 # we might want to build on linux systems

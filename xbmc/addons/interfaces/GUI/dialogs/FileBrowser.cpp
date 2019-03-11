@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "FileBrowser.h"
@@ -65,8 +53,11 @@ bool Interface_GUIDialogFileBrowser::show_and_get_directory(void* kodiBase, cons
 
   if (!shares || !heading || !path_in || !path_out)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogFileBrowser::%s - invalid handler data (shares='%p', heading='%p', path_in='%p', path_out='%p') on addon '%s'",
-                          __FUNCTION__, shares, heading, path_in, path_out, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogFileBrowser::%s - invalid handler data (shares='%p', "
+              "heading='%p', path_in='%p', path_out='%p') on addon '%s'",
+              __FUNCTION__, shares, heading, path_in, static_cast<void*>(path_out),
+              addon->ID().c_str());
     return false;
   }
 
@@ -92,8 +83,11 @@ bool Interface_GUIDialogFileBrowser::show_and_get_file(void* kodiBase, const cha
 
   if (!shares || !mask || !heading || !path_in || !path_out)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogFileBrowser::%s - invalid handler data (shares='%p', mask='%p', heading='%p', path_in='%p', path_out='%p') on addon '%s'",
-                          __FUNCTION__, shares, mask, heading, path_in, path_out, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogFileBrowser::%s - invalid handler data (shares='%p', mask='%p', "
+              "heading='%p', path_in='%p', path_out='%p') on addon '%s'",
+              __FUNCTION__, shares, mask, heading, path_in, static_cast<void*>(path_out),
+              addon->ID().c_str());
     return false;
   }
 
@@ -120,8 +114,11 @@ bool Interface_GUIDialogFileBrowser::show_and_get_file_from_dir(void* kodiBase, 
 
   if (!directory || !mask || !heading || !path_in || !path_out)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogFileBrowser::%s - invalid handler data (directory='%p', mask='%p', heading='%p', path_in='%p', path_out='%p') on addon '%s'",
-                          __FUNCTION__, directory, mask, heading, path_in, path_out, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogFileBrowser::%s - invalid handler data (directory='%p', "
+              "mask='%p', heading='%p', path_in='%p', path_out='%p') on addon '%s'",
+              __FUNCTION__, directory, mask, heading, path_in, static_cast<void*>(path_out),
+              addon->ID().c_str());
     return false;
   }
 
@@ -145,8 +142,11 @@ bool Interface_GUIDialogFileBrowser::show_and_get_file_list(void* kodiBase, cons
 
   if (!shares || !mask || !heading || !file_list || !entries)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogFileBrowser::%s - invalid handler data (shares='%p', mask='%p', heading='%p', file_list='%p', entries='%p') on addon '%s'",
-                          __FUNCTION__, shares, mask, heading, file_list, entries, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogFileBrowser::%s - invalid handler data (shares='%p', mask='%p', "
+              "heading='%p', file_list='%p', entries='%p') on addon '%s'",
+              __FUNCTION__, shares, mask, heading, static_cast<void*>(file_list),
+              static_cast<void*>(entries), addon->ID().c_str());
     return false;
   }
 
@@ -180,8 +180,11 @@ bool Interface_GUIDialogFileBrowser::show_and_get_source(void* kodiBase, const c
 
   if (!strType || !additionalShare || !path_in || !path_out)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogFileBrowser::%s - invalid handler data (additionalShare='%p', strType='%p', path_in='%p', path_out='%p') on addon '%s'",
-                          __FUNCTION__, additionalShare, strType, path_in, path_out, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogFileBrowser::%s - invalid handler data (additionalShare='%p', "
+              "strType='%p', path_in='%p', path_out='%p') on addon '%s'",
+              __FUNCTION__, additionalShare, strType, path_in, static_cast<void*>(path_out),
+              addon->ID().c_str());
     return false;
   }
 
@@ -208,7 +211,10 @@ bool Interface_GUIDialogFileBrowser::show_and_get_image(void* kodiBase, const ch
 
   if (!shares || !heading)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogFileBrowser::%s - invalid handler data (shares='%p', heading='%p') on addon '%s'", __FUNCTION__, shares, heading, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogFileBrowser::%s - invalid handler data (shares='%p', "
+              "heading='%p') on addon '%s'",
+              __FUNCTION__, shares, heading, addon->ID().c_str());
     return false;
   }
 
@@ -233,8 +239,12 @@ bool Interface_GUIDialogFileBrowser::show_and_get_image_list(void* kodiBase, con
 
   if (!shares || !heading || !file_list || !entries)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogFileBrowser::%s - invalid handler data (shares='%p', heading='%p', file_list='%p', entries='%p') on addon '%s'",
-                          __FUNCTION__, shares, heading, file_list, entries, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogFileBrowser::%s - invalid handler data (shares='%p', "
+              "heading='%p', file_list='%p', entries='%p') on addon '%s'",
+              __FUNCTION__, shares, heading,
+              static_cast<void*>(file_list), static_cast<void*>(entries),
+              addon->ID().c_str());
     return false;
   }
 
@@ -272,7 +282,13 @@ void Interface_GUIDialogFileBrowser::clear_file_list(void* kodiBase, char*** fil
     *file_list = nullptr;
   }
   else
-    CLog::Log(LOGERROR, "Interface_GUIDialogFileBrowser::%s - invalid handler data (file_list='%p') on addon '%s'", __FUNCTION__, file_list, addon->ID().c_str());
+  {
+
+    CLog::Log(
+        LOGERROR,
+        "Interface_GUIDialogFileBrowser::%s - invalid handler data (file_list='%p') on addon '%s'",
+        __FUNCTION__, static_cast<void*>(file_list), addon->ID().c_str());
+  }
 }
 
 void Interface_GUIDialogFileBrowser::GetVECShares(VECSOURCES& vecShares, const std::string& strShares, const std::string& strPath)

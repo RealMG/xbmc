@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIDialogPVRGuideSearch.h"
@@ -24,6 +12,7 @@
 
 #include "ServiceBroker.h"
 #include "addons/kodi-addon-dev-kit/include/kodi/xbmc_pvr_types.h"
+#include "guilib/GUIMessage.h"
 #include "guilib/GUIEditControl.h"
 #include "guilib/LocalizeStrings.h"
 #include "utils/StringUtils.h"
@@ -57,8 +46,6 @@ using namespace PVR;
 
 CGUIDialogPVRGuideSearch::CGUIDialogPVRGuideSearch(void) :
     CGUIDialog(WINDOW_DIALOG_PVR_GUIDE_SEARCH, "DialogPVRGuideSearch.xml"),
-    m_bConfirmed(false),
-    m_bCanceled(false),
     m_searchFilter(NULL)
 {
 }
@@ -79,14 +66,25 @@ void CGUIDialogPVRGuideSearch::UpdateChannelSpin(void)
   if (!group)
     group = CServiceBroker::GetPVRManager().ChannelGroups()->GetGroupAll(m_searchFilter->IsRadio());
 
-  std::vector<PVRChannelGroupMember> groupMembers(group->GetMembers());
-  for (std::vector<PVRChannelGroupMember>::const_iterator it = groupMembers.begin(); it != groupMembers.end(); ++it)
+  m_channelNumbersMap.clear();
+  const std::vector<PVRChannelGroupMember> groupMembers(group->GetMembers());
+  int iIndex = 0;
+  int iSelectedChannel = EPG_SEARCH_UNSET;
+  for (const auto& groupMember : groupMembers)
   {
-    if ((*it).channel)
-      labels.push_back(std::make_pair((*it).channel->ChannelName(), (*it).iChannelNumber));
+    if (groupMember.channel)
+    {
+      labels.emplace_back(std::make_pair(groupMember.channel->ChannelName(), iIndex));
+      m_channelNumbersMap.insert(std::make_pair(iIndex, groupMember.channelNumber));
+
+      if (iSelectedChannel == EPG_SEARCH_UNSET && groupMember.channelNumber == m_searchFilter->GetChannelNumber())
+        iSelectedChannel = iIndex;
+
+      ++iIndex;
+    }
   }
 
-  SET_CONTROL_LABELS(CONTROL_SPIN_CHANNELS, m_searchFilter->GetChannelNumber(), &labels);
+  SET_CONTROL_LABELS(CONTROL_SPIN_CHANNELS, iSelectedChannel, &labels);
 }
 
 void CGUIDialogPVRGuideSearch::UpdateGroupsSpin(void)
@@ -222,7 +220,7 @@ int CGUIDialogPVRGuideSearch::GetSpinValue(int controlID)
 {
   CGUIMessage msg(GUI_MSG_ITEM_SELECTED, GetID(), controlID);
   OnMessage(msg);
-  return (int)msg.GetParam1();
+  return msg.GetParam1();
 }
 
 std::string CGUIDialogPVRGuideSearch::GetEditValue(int controlID)
@@ -250,7 +248,10 @@ void CGUIDialogPVRGuideSearch::OnSearch()
   m_searchFilter->SetGenreType(GetSpinValue(CONTROL_SPIN_GENRE));
   m_searchFilter->SetMinimumDuration(GetSpinValue(CONTROL_SPIN_MIN_DURATION));
   m_searchFilter->SetMaximumDuration(GetSpinValue(CONTROL_SPIN_MAX_DURATION));
-  m_searchFilter->SetChannelNumber(GetSpinValue(CONTROL_SPIN_CHANNELS));
+
+  auto it = m_channelNumbersMap.find(GetSpinValue(CONTROL_SPIN_CHANNELS));
+  m_searchFilter->SetChannelNumber(it == m_channelNumbersMap.end() ? CPVRChannelNumber() : (*it).second);
+
   m_searchFilter->SetChannelGroup(GetSpinValue(CONTROL_SPIN_GROUPS));
 
   m_searchFilter->SetStartDateTime(ReadDateTime(GetEditValue(CONTROL_EDIT_START_DATE), GetEditValue(CONTROL_EDIT_START_TIME)));

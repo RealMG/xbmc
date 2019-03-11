@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -199,10 +199,6 @@ msgstr "K dispozícii"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Stlačte [B]OK[/B] pre zastavenie"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Prepnúť jazyk"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -448,6 +444,14 @@ msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Vyberte fanart balík pre vzhľad"
 
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Vybrať program"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Vyberte rozlíšenie"
+
 msgctxt "#31134"
 msgid "Remaining"
 msgstr "Zostáva"
@@ -555,3 +559,19 @@ msgstr "Zahrajte si vaše osobné hry alebo si prevezmite jeden z mnohých hern�
 msgctxt "#31163"
 msgid "Show Fanart background"
 msgstr "Zobraziť Fanart pozadie"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Vyberte si spôsob identifikácie profilu"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Názov profilu"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Profilový avatar"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Animovať pozadie"

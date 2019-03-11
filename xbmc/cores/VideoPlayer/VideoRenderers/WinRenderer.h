@@ -1,24 +1,12 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "BaseRenderer.h"
 #include "ColorManager.h"
@@ -26,6 +14,8 @@
 #include "HwDecRender/DXVAHD.h"
 #include "RenderCapture.h"
 #include "WinRenderBuffer.h"
+
+#include <wrl/client.h>
 
 #define AUTOSOURCE -1
 
@@ -56,12 +46,11 @@ public:
   bool RenderCapture(CRenderCapture* capture) override;
 
   // Player functions
-  bool Configure(const VideoPicture &picture, float fps, unsigned flags, unsigned int orientation) override;
-  void AddVideoPicture(const VideoPicture &picture, int index, double currentClock) override;
+  bool Configure(const VideoPicture &picture, float fps, unsigned int orientation) override;
+  void AddVideoPicture(const VideoPicture &picture, int index) override;
   void UnInit() override;
-  void Reset() override; /* resets renderer after seek for example */
   bool IsConfigured() override { return m_bConfigured; }
-  void Flush() override;
+  bool Flush(bool saveBuffers) override;
   CRenderInfo GetRenderInfo() override;
   void RenderUpdate(int index, int index2, bool clear, unsigned int flags, unsigned int alpha) override;
   void SetBufferSize(int numBuffers) override { m_neededBuffers = numBuffers; }
@@ -95,6 +84,7 @@ protected:
   void ColorManagmentUpdate();
   bool CreateIntermediateRenderTarget(unsigned int width, unsigned int height, bool dynamic);
   EBufferFormat SelectBufferFormat(AVPixelFormat format, const RenderMethod method) const;
+  AVColorPrimaries GetSrcPrimaries(AVColorPrimaries srcPrimaries, unsigned int width, unsigned int height) const;
 
   bool LoadCLUT();
 
@@ -104,6 +94,7 @@ protected:
   bool m_cmsOn;
   bool m_clutLoaded;
   bool m_useDithering;
+  bool m_toneMapping;
 
   unsigned int m_destWidth;
   unsigned int m_destHeight;
@@ -124,14 +115,15 @@ protected:
   ESCALINGMETHOD m_scalingMethodGui;
   CRenderBuffer m_renderBuffers[NUM_BUFFERS];
 
-  DXVA::CProcessorHD *m_processor;
   struct SwsContext *m_sw_scale_ctx;
-  CYUV2RGBShader* m_colorShader;
-  CConvolutionShader* m_scalerShader;
-  std::unique_ptr<COutputShader> m_outputShader;
   CRenderCapture* m_capture;
+  std::unique_ptr<DXVA::CProcessorHD> m_processor;
+  std::unique_ptr<CYUV2RGBShader> m_colorShader;
+  std::unique_ptr<CConvolutionShader> m_scalerShader;
+  std::unique_ptr<COutputShader> m_outputShader;
   std::unique_ptr<CColorManager> m_colorManager;
-  ID3D11ShaderResourceView *m_pCLUTView;
+  Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> m_pCLUTView;
 
   CD3DTexture m_IntermediateTarget;
+  AVColorPrimaries m_srcPrimaries;
 };

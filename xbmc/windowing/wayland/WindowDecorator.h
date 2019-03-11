@@ -1,22 +1,11 @@
 /*
- *      Copyright (C) 2017 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include <array>
@@ -27,12 +16,13 @@
 #include <wayland-cursor.hpp>
 
 #include "Connection.h"
-#include "guilib/Geometry.h"
 #include "Registry.h"
+#include "Seat.h"
 #include "ShellSurface.h"
 #include "threads/CriticalSection.h"
 #include "Util.h"
-#include "utils/posix/SharedMemory.h"
+#include "utils/Geometry.h"
+#include "platform/posix/utils/SharedMemory.h"
 #include "WindowDecorationHandler.h"
 
 namespace KODI
@@ -69,7 +59,7 @@ enum SurfaceIndex
  *
  * The decorations are positioned around the main surface automatically.
  */
-class CWindowDecorator
+class CWindowDecorator final : IRawInputHandlerTouch, IRawInputHandlerPointer
 {
 public:
   /**
@@ -118,6 +108,9 @@ public:
 
   bool IsDecorationActive() const;
 
+  void AddSeat(CSeat* seat);
+  void RemoveSeat(CSeat* seat);
+
   struct Buffer
   {
     void* data{};
@@ -148,6 +141,14 @@ public:
 private:
   CWindowDecorator(CWindowDecorator const& other) = delete;
   CWindowDecorator& operator=(CWindowDecorator const& other) = delete;
+
+  // IRawInputHandlerTouch
+  void OnTouchDown(CSeat* seat, std::uint32_t serial, std::uint32_t time, wayland::surface_t surface, std::int32_t id, double x, double y) override;
+  // IRawInputHandlerPointer
+  void OnPointerEnter(CSeat* seat, std::uint32_t serial, wayland::surface_t surface, double surfaceX, double surfaceY) override;
+  void OnPointerLeave(CSeat* seat, std::uint32_t serial, wayland::surface_t surface) override;
+  void OnPointerMotion(CSeat* seat, std::uint32_t time, double surfaceX, double surfaceY) override;
+  void OnPointerButton(CSeat* seat, std::uint32_t serial, std::uint32_t time, std::uint32_t button, wayland::pointer_button_state state) override;
 
   void Reset(bool reallocate);
 
@@ -188,6 +189,8 @@ private:
     Surface surface;
     wayland::subsurface_t subsurface;
     CRectInt geometry;
+    /// Region of the surface that should count as being part of the window
+    CRectInt windowRect;
   };
   BorderSurface MakeBorderSurface();
 
@@ -206,24 +209,21 @@ private:
   std::set<wayland::buffer_t, WaylandCPtrCompare> m_pendingBuffers;
   CCriticalSection m_pendingBuffersMutex;
 
-  struct Seat
+  struct SeatState
   {
-    wayland::seat_t seat;
-    wayland::pointer_t pointer;
-    wayland::touch_t touch;
-
+    CSeat* seat;
     SurfaceIndex currentSurface{SURFACE_COUNT};
     CPoint pointerPosition;
 
-    std::uint32_t pointerEnterSerial;
+    std::uint32_t pointerEnterSerial{};
     std::string cursorName;
     wayland::surface_t cursor;
 
-    explicit Seat(wayland::seat_t seat)
-    : seat{std::move(seat)}
+    explicit SeatState(CSeat* seat)
+    : seat{seat}
     {}
   };
-  std::map<std::uint32_t, Seat> m_seats;
+  std::map<std::uint32_t, SeatState> m_seats;
 
   struct Button
   {
@@ -239,15 +239,9 @@ private:
 
   void LoadCursorTheme();
 
-  void OnSeatAdded(std::uint32_t name, wayland::proxy_t&& seat);
-  void OnSeatRemoved(std::uint32_t name);
-  void OnSeatCapabilities(std::uint32_t name, wayland::seat_capability capability);
-  void HandleSeatPointer(Seat& seat);
-  void HandleSeatTouch(Seat& seat);
-
-  void UpdateSeatCursor(Seat& seat);
+  void UpdateSeatCursor(SeatState& seatState);
   void UpdateButtonHoverState();
-  void HandleSeatClick(wayland::seat_t seat, SurfaceIndex surface, std::uint32_t serial, std::uint32_t button, CPoint position);
+  void HandleSeatClick(SeatState const& seatState, SurfaceIndex surface, std::uint32_t serial, std::uint32_t button, CPoint position);
 };
 
 }

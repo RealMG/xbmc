@@ -1,8 +1,11 @@
 @ECHO OFF
 
-rem set Visual C++ build environment
-call "%VS140COMNTOOLS%..\..\VC\vcvarsall.bat" amd64 store 10.0.14393.0
-
 PUSHD %~dp0\..
-CALL make-addons.bat %*
+CALL vswhere.bat x64 store
+IF ERRORLEVEL 1 (
+  ECHO ERROR! make-addons.bat: Something went wrong when calling vswhere.bat
+  POPD
+  EXIT /B 1
+)
+CALL make-addons.bat win10 %*
 POPD

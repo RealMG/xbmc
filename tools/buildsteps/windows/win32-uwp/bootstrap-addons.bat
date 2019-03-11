@@ -1,8 +1,11 @@
 @ECHO OFF
 
-rem set Visual C++ build environment
-call "%VS140COMNTOOLS%..\..\VC\bin\amd64_x86\vcvarsamd64_x86.bat" store 10.0.14393.0 || call "%VS140COMNTOOLS%..\..\VC\vcvarsall.bat" x86 store 10.0.14393.0
-
 PUSHD %~dp0\..
+CALL vswhere.bat x86 store
+IF ERRORLEVEL 1 (
+  ECHO ERROR! bootstrap-addons.bat: Something went wrong when calling vswhere.bat
+  POPD
+  EXIT /B 1
+)
 CALL bootstrap-addons %*
 POPD

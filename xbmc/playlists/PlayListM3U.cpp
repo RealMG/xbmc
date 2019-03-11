@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PlayListM3U.h"
@@ -27,6 +15,7 @@
 #include "utils/URIUtils.h"
 #include "video/VideoInfoTag.h"
 #include "music/tags/MusicInfoTag.h"
+#include <inttypes.h>
 
 using namespace PLAYLIST;
 using namespace XFILE;
@@ -73,7 +62,7 @@ bool CPlayListM3U::Load(const std::string& strFileName)
   std::string strInfo;
   std::vector<std::pair<std::string, std::string> > properties;
 
-  long lDuration = 0;
+  int lDuration = 0;
   int iStartOffset = 0;
   int iEndOffset = 0;
 
@@ -184,7 +173,7 @@ bool CPlayListM3U::Load(const std::string& strFileName)
           newItem->GetMusicInfoTag()->SetLoaded();
           newItem->GetMusicInfoTag()->SetTitle(strInfo);
           if (iEndOffset)
-            lDuration = (iEndOffset - iStartOffset + 37) / 75;
+            lDuration = static_cast<int>(CUtil::ConvertMilliSecsToSecsIntRounded(iEndOffset - iStartOffset));
         }
         if (newItem->IsVideo() && !newItem->HasVideoInfoTag()) // File is a video and needs a VideoInfoTag
           newItem->GetVideoInfoTag()->Reset(); // Force VideoInfoTag creation
@@ -241,7 +230,7 @@ void CPlayListM3U::Save(const std::string& strFileName) const
       return; // error
     if (item->m_lStartOffset != 0 || item->m_lEndOffset != 0)
     {
-      strLine = StringUtils::Format("%s:%i,%i\n", OffsetMarker, item->m_lStartOffset, item->m_lEndOffset);
+      strLine = StringUtils::Format("%s:%" PRIi64 ",%" PRIi64 "\n", OffsetMarker, item->m_lStartOffset, item->m_lEndOffset);
       file.Write(strLine.c_str(),strLine.size());
     }
     std::string strFileName = ResolveURL(item);

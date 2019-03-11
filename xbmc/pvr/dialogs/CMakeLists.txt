@@ -7,7 +7,9 @@ set(SOURCES GUIDialogPVRChannelManager.cpp
             GUIDialogPVRRadioRDSInfo.cpp
             GUIDialogPVRRecordingInfo.cpp
             GUIDialogPVRRecordingSettings.cpp
-            GUIDialogPVRTimerSettings.cpp)
+            GUIDialogPVRTimerSettings.cpp
+            GUIDialogPVRClientPriorities.cpp
+            GUIDialogPVRItemsViewBase.cpp)
 
 set(HEADERS GUIDialogPVRChannelManager.h
             GUIDialogPVRChannelsOSD.h
@@ -18,6 +20,8 @@ set(HEADERS GUIDialogPVRChannelManager.h
             GUIDialogPVRRadioRDSInfo.h
             GUIDialogPVRRecordingInfo.h
             GUIDialogPVRRecordingSettings.h
-            GUIDialogPVRTimerSettings.h)
+            GUIDialogPVRTimerSettings.h
+            GUIDialogPVRClientPriorities.h
+            GUIDialogPVRItemsViewBase.h)
 
 core_add_library(pvr_dialogs)

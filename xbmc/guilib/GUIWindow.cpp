@@ -1,25 +1,13 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
 #include "GUIWindow.h"
+#include "GUIComponent.h"
 #include "GUIWindowManager.h"
 #include "input/Key.h"
 #include "GUIControlFactory.h"
@@ -35,14 +23,13 @@
 #include "utils/XMLUtils.h"
 #include "GUIAudioManager.h"
 #include "Application.h"
+#include "ServiceBroker.h"
 #include "messaging/ApplicationMessenger.h"
 #include "settings/AdvancedSettings.h"
+#include "settings/SettingsComponent.h"
+#include "utils/Color.h"
 #include "utils/Variant.h"
 #include "utils/StringUtils.h"
-
-#ifdef HAS_PERFORMANCE_SAMPLE
-#include "utils/PerformanceSample.h"
-#endif
 
 using namespace KODI::MESSAGING;
 
@@ -81,10 +68,6 @@ CGUIWindow::~CGUIWindow()
 
 bool CGUIWindow::Load(const std::string& strFileName, bool bContainsPath)
 {
-#ifdef HAS_PERFORMANCE_SAMPLE
-  CPerformanceSample aSample("WindowLoad-" + strFileName, true);
-#endif
-
   if (m_windowLoaded || !g_SkinInfo)
     return true;      // no point loading if it's already there
 
@@ -108,7 +91,7 @@ bool CGUIWindow::Load(const std::string& strFileName, bool bContainsPath)
     break;
   }
   CLog::Log(LOGINFO, "Loading skin file: %s, load type: %s", strFileName.c_str(), strLoadType);
-  
+
   // Find appropriate skin folder + resolution to load from
   std::string strPath;
   std::string strLowerPath;
@@ -193,7 +176,7 @@ bool CGUIWindow::Load(TiXmlElement *pRootElement)
 
   // set the scaling resolution so that any control creation or initialisation can
   // be done with respect to the correct aspect ratio
-  g_graphicsContext.SetScalingResolution(m_coordsRes, m_needsScaling);
+  CServiceBroker::GetWinSystem()->GetGfxContext().SetScalingResolution(m_coordsRes, m_needsScaling);
 
   // now load in the skin file
   SetDefaults();
@@ -227,7 +210,7 @@ bool CGUIWindow::Load(TiXmlElement *pRootElement)
     {
       std::string condition;
       CGUIControlFactory::GetConditionalVisibility(pRootElement, condition);
-      m_visibleCondition = g_infoManager.Register(condition, GetID());
+      m_visibleCondition = CServiceBroker::GetGUI()->GetInfoManager().Register(condition, GetID());
     }
     else if (strValue == "animation" && pChild->FirstChild())
     {
@@ -254,7 +237,7 @@ bool CGUIWindow::Load(TiXmlElement *pRootElement)
         origin.x = CGUIControlFactory::ParsePosition(originElement->Attribute("x"), static_cast<float>(m_coordsRes.iWidth));
         origin.y = CGUIControlFactory::ParsePosition(originElement->Attribute("y"), static_cast<float>(m_coordsRes.iHeight));
         if (originElement->FirstChild())
-          origin.condition = g_infoManager.Register(originElement->FirstChild()->Value(), GetID());
+          origin.condition = CServiceBroker::GetGUI()->GetInfoManager().Register(originElement->FirstChild()->Value(), GetID());
         m_origins.push_back(origin);
         originElement = originElement->NextSiblingElement("origin");
       }
@@ -266,7 +249,7 @@ bool CGUIWindow::Load(TiXmlElement *pRootElement)
       m_hasCamera = true;
     }
     else if (strValue == "depth" && pChild->FirstChild())
-    { 
+    {
       float stereo = static_cast<float>(atof(pChild->FirstChild()->Value()));
       m_stereo = std::max(-1.f, std::min(1.f, stereo));
     }
@@ -342,13 +325,13 @@ void CGUIWindow::CenterWindow()
 
 void CGUIWindow::DoProcess(unsigned int currentTime, CDirtyRegionList &dirtyregions)
 {
-  if (!IsControlDirty() && g_advancedSettings.m_guiSmartRedraw)
+  if (!IsControlDirty() && CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiSmartRedraw)
     return;
 
-  g_graphicsContext.SetRenderingResolution(m_coordsRes, m_needsScaling);
-  g_graphicsContext.AddGUITransform();
+  CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderingResolution(m_coordsRes, m_needsScaling);
+  CServiceBroker::GetWinSystem()->GetGfxContext().AddGUITransform();
   CGUIControlGroup::DoProcess(currentTime, dirtyregions);
-  g_graphicsContext.RemoveTransform();
+  CServiceBroker::GetWinSystem()->GetGfxContext().RemoveTransform();
 
   // check if currently focused control can have it
   // and fallback to default control if not
@@ -365,11 +348,11 @@ void CGUIWindow::DoRender()
   // to occur.
   if (!m_bAllocated) return;
 
-  g_graphicsContext.SetRenderingResolution(m_coordsRes, m_needsScaling);
+  CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderingResolution(m_coordsRes, m_needsScaling);
 
-  g_graphicsContext.AddGUITransform();
+  CServiceBroker::GetWinSystem()->GetGfxContext().AddGUITransform();
   CGUIControlGroup::DoRender();
-  g_graphicsContext.RemoveTransform();
+  CServiceBroker::GetWinSystem()->GetGfxContext().RemoveTransform();
 
   if (CGUIControlProfiler::IsRunning()) CGUIControlProfiler::Instance().EndFrame();
 }
@@ -387,7 +370,7 @@ void CGUIWindow::AfterRender()
 
 void CGUIWindow::Close_Internal(bool forceClose /*= false*/, int nextWindowID /*= 0*/, bool enableSound /*= true*/)
 {
-  CSingleLock lock(g_graphicsContext);
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
 
   if (!m_active)
     return;
@@ -400,7 +383,7 @@ void CGUIWindow::Close_Internal(bool forceClose /*= false*/, int nextWindowID /*
     if (!m_closing)
     {
       if (enableSound && IsSoundEnabled())
-        g_audioManager.PlayWindowSound(GetID(), SOUND_DEINIT);
+        CServiceBroker::GetGUI()->GetAudioManager().PlayWindowSound(GetID(), SOUND_DEINIT);
 
       // Perform the window out effect
       QueueAnimation(ANIM_TYPE_WINDOW_CLOSE);
@@ -419,7 +402,7 @@ void CGUIWindow::Close(bool forceClose /*= false*/, int nextWindowID /*= 0*/, bo
   if (!g_application.IsCurrentThread())
   {
     // make sure graphics lock is not held
-    CSingleExit leaveIt(g_graphicsContext);
+    CSingleExit leaveIt(CServiceBroker::GetWinSystem()->GetGfxContext());
     int param2 = (forceClose ? 0x01 : 0) | (enableSound ? 0x02 : 0);
     if (bWait)
       CApplicationMessenger::GetInstance().SendMsg(TMSG_GUI_WINDOW_CLOSE, nextWindowID, param2, static_cast<void*>(this));
@@ -505,9 +488,9 @@ CPoint CGUIWindow::GetPosition() const
 // OnMouseAction - called by OnAction()
 EVENT_RESULT CGUIWindow::OnMouseAction(const CAction &action)
 {
-  g_graphicsContext.SetScalingResolution(m_coordsRes, m_needsScaling);
+  CServiceBroker::GetWinSystem()->GetGfxContext().SetScalingResolution(m_coordsRes, m_needsScaling);
   CPoint mousePoint(action.GetAmount(0), action.GetAmount(1));
-  g_graphicsContext.InvertFinalCoords(mousePoint.x, mousePoint.y);
+  CServiceBroker::GetWinSystem()->GetGfxContext().InvertFinalCoords(mousePoint.x, mousePoint.y);
 
   // create the mouse event
   CMouseEvent event(action.GetID(), action.GetHoldTime(), action.GetAmount(2), action.GetAmount(3));
@@ -547,7 +530,7 @@ void CGUIWindow::OnInitWindow()
 {
   //  Play the window specific init sound
   if (IsSoundEnabled())
-    g_audioManager.PlayWindowSound(GetID(), SOUND_INIT);
+    CServiceBroker::GetGUI()->GetAudioManager().PlayWindowSound(GetID(), SOUND_INIT);
 
   // set our rendered state
   m_hasProcessed = false;
@@ -596,7 +579,7 @@ bool CGUIWindow::OnMessage(CGUIMessage& message)
       return true;
     }
     break;
-      
+
   case GUI_MSG_WINDOW_INIT:
     {
       CLog::Log(LOGDEBUG, "------ Window Init (%s) ------", GetProperty("xmlfile").c_str());
@@ -616,20 +599,6 @@ bool CGUIWindow::OnMessage(CGUIMessage& message)
     }
     break;
 
-  case GUI_MSG_CLICKED:
-    {
-      // a specific control was clicked
-      CLICK_EVENT clickEvent = m_mapClickEvents[ message.GetSenderId() ];
-
-      // determine if there are any handlers for this event
-      if (clickEvent.HasAHandler())
-      {
-        // fire the message to all handlers
-        clickEvent.Fire(message);
-      }
-      break;
-    }
-  
   case GUI_MSG_UNFOCUS_ALL:
     {
       //unfocus the current focused control in this window
@@ -644,19 +613,6 @@ bool CGUIWindow::OnMessage(CGUIMessage& message)
       return true;
     }
 
-  case GUI_MSG_SELCHANGED:
-    {
-      // a selection within a specific control has changed
-      SELECTED_EVENT selectedEvent = m_mapSelectedEvents[ message.GetSenderId() ];
-
-      // determine if there are any handlers for this event
-      if (selectedEvent.HasAHandler())
-      {
-        // fire the message to all handlers
-        selectedEvent.Fire(message);
-      }
-      break;
-    }
   case GUI_MSG_FOCUSED:
     { // a control has been focused
       if (HasID(message.GetSenderId()))
@@ -765,12 +721,12 @@ bool CGUIWindow::OnMessage(CGUIMessage& message)
 
 bool CGUIWindow::NeedLoad() const
 {
-  return !m_windowLoaded || g_infoManager.ConditionsChangedValues(m_xmlIncludeConditions);
+  return !m_windowLoaded || CServiceBroker::GetGUI()->GetInfoManager().ConditionsChangedValues(m_xmlIncludeConditions);
 }
 
-void CGUIWindow::AllocResources(bool forceLoad /*= FALSE */)
+void CGUIWindow::AllocResources(bool forceLoad /*= false */)
 {
-  CSingleLock lock(g_graphicsContext);
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
 
 #ifdef _DEBUG
   int64_t start;
@@ -816,11 +772,11 @@ void CGUIWindow::AllocResources(bool forceLoad /*= FALSE */)
   m_bAllocated = true;
 }
 
-void CGUIWindow::FreeResources(bool forceUnload /*= FALSE */)
+void CGUIWindow::FreeResources(bool forceUnload /*= false */)
 {
   m_bAllocated = false;
   CGUIControlGroup::FreeResources();
-  //g_TextureManager.Dump();
+  //CServiceBroker::GetGUI()->GetTextureManager().Dump();
   // unload the skin
   if (m_loadType == LOAD_EVERY_TIME || forceUnload) ClearAll();
   if (forceUnload)
@@ -848,7 +804,7 @@ void CGUIWindow::ClearAll()
 
 bool CGUIWindow::Initialize()
 {
-  if (!g_windowManager.Initialized())
+  if (!CServiceBroker::GetGUI()->GetWindowManager().Initialized())
     return false;
   if (!NeedLoad())
     return true;
@@ -867,13 +823,15 @@ bool CGUIWindow::Initialize()
 void CGUIWindow::SetInitialVisibility()
 {
   // reset our info manager caches
-  g_infoManager.ResetCache();
+  CGUIInfoManager& infoMgr = CServiceBroker::GetGUI()->GetInfoManager();
+  infoMgr.ResetCache();
+  infoMgr.GetInfoProviders().GetGUIControlsInfoProvider().ResetContainerMovingCache();
   CGUIControlGroup::SetInitialVisibility();
 }
 
 bool CGUIWindow::IsActive() const
 {
-  return g_windowManager.IsWindowActive(GetID());
+  return CServiceBroker::GetGUI()->GetWindowManager().IsWindowActive(GetID());
 }
 
 bool CGUIWindow::CheckAnimation(ANIMATION_TYPE animType)
@@ -934,7 +892,7 @@ bool CGUIWindow::ControlGroupHasFocus(int groupID, int controlID)
     {
       CGUIMessage message(GUI_MSG_ITEM_SELECTED, GetID(), group->GetID());
       group->OnMessage(message);
-      return (controlID == static_cast<int>(message.GetParam1()));
+      return (controlID == message.GetParam1());
     }
   }
   return false;
@@ -969,7 +927,7 @@ void CGUIWindow::ResetControlStates()
 
 bool CGUIWindow::OnBack(int actionID)
 {
-  g_windowManager.PreviousWindow();
+  CServiceBroker::GetGUI()->GetWindowManager().PreviousWindow();
   return true;
 }
 
@@ -1031,13 +989,13 @@ void CGUIWindow::SetDefaults()
 
 CRect CGUIWindow::GetScaledBounds() const
 {
-  CSingleLock lock(g_graphicsContext);
-  g_graphicsContext.SetScalingResolution(m_coordsRes, m_needsScaling);
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
+  CServiceBroker::GetWinSystem()->GetGfxContext().SetScalingResolution(m_coordsRes, m_needsScaling);
   CPoint pos(GetPosition());
   CRect rect(pos.x, pos.y, pos.x + m_width, pos.y + m_height);
   float z = 0;
-  g_graphicsContext.ScaleFinalCoords(rect.x1, rect.y1, z);
-  g_graphicsContext.ScaleFinalCoords(rect.x2, rect.y2, z);
+  CServiceBroker::GetWinSystem()->GetGfxContext().ScaleFinalCoords(rect.x1, rect.y1, z);
+  CServiceBroker::GetWinSystem()->GetGfxContext().ScaleFinalCoords(rect.x2, rect.y2, z);
   return rect;
 }
 
@@ -1069,7 +1027,7 @@ void CGUIWindow::SetProperty(const std::string &strKey, const CVariant &value)
 
 CVariant CGUIWindow::GetProperty(const std::string &strKey) const
 {
-  CSingleLock lock(*this);
+  CSingleLock lock(const_cast<CGUIWindow&>(*this));
   std::map<std::string, CVariant, icompare>::const_iterator iter = m_mapProperties.find(strKey);
   if (iter == m_mapProperties.end())
     return CVariant(CVariant::VariantTypeNull);
@@ -1101,9 +1059,9 @@ void CGUIWindow::RunUnloadActions() const
 void CGUIWindow::ClearBackground()
 {
   m_clearBackground.Update();
-  color_t color = m_clearBackground;
+  UTILS::Color color = m_clearBackground;
   if (color)
-    g_graphicsContext.Clear(color);
+    CServiceBroker::GetWinSystem()->GetGfxContext().Clear(color);
 }
 
 void CGUIWindow::SetID(int id)

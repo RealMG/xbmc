@@ -4,18 +4,21 @@ set_source_files_properties(${WAYLAND_EXTRA_PROTOCOL_GENERATED_DIR}/wayland-extr
                             PROPERTIES GENERATED TRUE)
 
 set(SOURCES Connection.cpp
+            OptionalsReg.cpp
             Output.cpp
-            GLContextEGL.cpp
             InputProcessorKeyboard.h
             InputProcessorPointer.h
             InputProcessorTouch.h
             OSScreenSaverIdleInhibitUnstableV1.cpp
             Registry.cpp
             Seat.cpp
+            SeatInputProcessing.cpp
             SeatSelection.cpp
             ShellSurface.cpp
             ShellSurfaceWlShell.cpp
+            ShellSurfaceXdgShell.cpp
             ShellSurfaceXdgShellUnstableV6.cpp
+            Util.cpp
             VideoSyncWpPresentation.cpp
             ${WAYLAND_EXTRA_PROTOCOL_GENERATED_DIR}/wayland-extra-protocols.cpp
             WindowDecorator.cpp
@@ -25,17 +28,19 @@ set(SOURCES Connection.cpp
             XkbcommonKeymap.cpp)
 
 set(HEADERS Connection.h
+            OptionalsReg.h
             Output.h
-            GLContextEGL.h
             InputProcessorKeyboard.cpp
             InputProcessorPointer.cpp
             InputProcessorTouch.cpp
             OSScreenSaverIdleInhibitUnstableV1.h
             Registry.h
             Seat.h
+            SeatInputProcessing.h
             SeatSelection.h
             ShellSurface.h
             ShellSurfaceWlShell.h
+            ShellSurfaceXdgShell.h
             ShellSurfaceXdgShellUnstableV6.h
             Signals.h
             VideoSyncWpPresentation.h

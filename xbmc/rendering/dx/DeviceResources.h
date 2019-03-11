@@ -1,34 +1,23 @@
-﻿/*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include <wrl.h>
 #include <wrl/client.h>
 #include <concrt.h>
 #if defined(TARGET_WINDOWS_STORE)
-#include <agile.h>
 #include <dxgi1_3.h>
 #else
 #include <dxgi1_2.h>
 #include <easyhook/easyhook.h>
 #endif
+#include <functional>
 #include <memory>
 
 #include "DirectXHelper.h"
@@ -60,9 +49,9 @@ namespace DX
     void Present();
 
     // The size of the render target, in pixels.
-    Windows::Foundation::Size GetOutputSize() const { return m_outputSize; }
+    winrt::Windows::Foundation::Size GetOutputSize() const { return m_outputSize; }
     // The size of the render target, in dips.
-    Windows::Foundation::Size GetLogicalSize() const { return m_logicalSize; }
+    winrt::Windows::Foundation::Size GetLogicalSize() const { return m_logicalSize; }
     void SetLogicalSize(float width, float height);
     float GetDpi() const { return m_effectiveDpi; }
     void SetDpi(float dpi);
@@ -80,10 +69,10 @@ namespace DX
     D3D_FEATURE_LEVEL GetDeviceFeatureLevel() const { return m_d3dFeatureLevel; }
     CD3DTexture* GetBackBuffer() { return &m_backBufferTex; }
 
-    void GetOutput(IDXGIOutput** pOutput) const;
+    void GetOutput(IDXGIOutput** ppOutput) const;
     void GetAdapterDesc(DXGI_ADAPTER_DESC *desc) const;
     void GetDisplayMode(DXGI_MODE_DESC *mode) const;
-    
+
     D3D11_VIEWPORT GetScreenViewport() const { return m_screenViewport; }
     void SetViewPort(D3D11_VIEWPORT& viewPort) const;
 
@@ -106,14 +95,16 @@ namespace DX
     bool IsStereoEnabled() const { return m_stereoEnabled; }
     void SetStereoIdx(byte idx) { m_backBufferTex.SetViewIdx(idx); }
 
-    void SetMonitor(HMONITOR monitor) const;
+    void SetMonitor(HMONITOR monitor);
     HMONITOR GetMonitor() const;
 #if defined(TARGET_WINDOWS_DESKTOP)
     void SetWindow(HWND window);
 #elif defined(TARGET_WINDOWS_STORE)
     void Trim() const;
-    void SetWindow(Windows::UI::Core::CoreWindow^ window);
+    void SetWindow(const winrt::Windows::UI::Core::CoreWindow& window);
+    void SetWindowPos(winrt::Windows::Foundation::Rect rect);
 #endif // TARGET_WINDOWS_STORE
+    bool DoesTextureSharingWork();
 
   private:
     class CBackBuffer : public CD3DTexture
@@ -131,10 +122,12 @@ namespace DX
     void UpdateRenderTargetSize();
     void OnDeviceLost(bool removed);
     void OnDeviceRestored();
+    void HandleOutputChange(const std::function<bool(DXGI_OUTPUT_DESC)>& cmpFunc);
+    bool CreateFactory();
 
     HWND m_window{ nullptr };
 #if defined(TARGET_WINDOWS_STORE)
-    Platform::Agile<Windows::UI::Core::CoreWindow> m_coreWindow;
+    winrt::Windows::UI::Core::CoreWindow m_coreWindow = nullptr;
 #endif
     Microsoft::WRL::ComPtr<IDXGIFactory2> m_dxgiFactory;
     Microsoft::WRL::ComPtr<IDXGIAdapter1> m_adapter;
@@ -144,6 +137,9 @@ namespace DX
     Microsoft::WRL::ComPtr<ID3D11DeviceContext1> m_d3dContext;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext1> m_deferrContext;
     Microsoft::WRL::ComPtr<IDXGISwapChain1> m_swapChain;
+#ifdef _DEBUG
+    Microsoft::WRL::ComPtr<ID3D11Debug> m_d3dDebug;
+#endif
 
     CBackBuffer m_backBufferTex;
     Microsoft::WRL::ComPtr<ID3D11DepthStencilView> m_d3dDepthStencilView;
@@ -151,8 +147,8 @@ namespace DX
 
     // Cached device properties.
     D3D_FEATURE_LEVEL m_d3dFeatureLevel;
-    Windows::Foundation::Size m_outputSize;
-    Windows::Foundation::Size m_logicalSize;
+    winrt::Windows::Foundation::Size m_outputSize;
+    winrt::Windows::Foundation::Size m_logicalSize;
     float m_dpi;
 
     // This is the DPI that will be reported back to the app. It takes into account whether the app supports high resolution screens or not.

@@ -1,29 +1,17 @@
 /*
- *      Copyright (C) 2014-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "FeatureHandling.h"
 #include "games/controllers/Controller.h"
 #include "games/controllers/ControllerManager.h"
+#include "input/joysticks/interfaces/IButtonMap.h"
+#include "input/joysticks/interfaces/IInputHandler.h"
 #include "input/joysticks/DriverPrimitive.h"
-#include "input/joysticks/IButtonMap.h"
-#include "input/joysticks/IInputHandler.h"
 #include "threads/SystemClock.h"
 #include "utils/log.h"
 #include "ServiceBroker.h"
@@ -60,13 +48,34 @@ bool CJoystickFeature::AcceptsInput(bool bActivation)
   return bAcceptsInput;
 }
 
+void CJoystickFeature::ResetMotion()
+{
+  m_motionStartTimeMs = 0;
+}
+
+void CJoystickFeature::StartMotion()
+{
+  m_motionStartTimeMs = XbmcThreads::SystemClockMillis();
+}
+
+bool CJoystickFeature::InMotion() const
+{
+  return m_motionStartTimeMs > 0;
+}
+
+unsigned int CJoystickFeature::MotionTimeMs() const
+{
+  if (!InMotion())
+    return 0;
+
+  return XbmcThreads::SystemClockMillis() - m_motionStartTimeMs;
+}
+
 // --- CScalarFeature ----------------------------------------------------------
 
 CScalarFeature::CScalarFeature(const FeatureName& name, IInputHandler* handler, IButtonMap* buttonMap) :
   CJoystickFeature(name, handler, buttonMap),
-  m_inputType(INPUT_TYPE::UNKNOWN),
   m_bDigitalState(false),
-  m_motionStartTimeMs(0),
   m_analogState(0.0f),
   m_bActivated(false),
   m_bDiscrete(true)
@@ -125,7 +134,9 @@ bool CScalarFeature::OnDigitalMotion(bool bPressed)
   if (m_bDigitalState != bPressed)
   {
     m_bDigitalState = bPressed;
-    m_motionStartTimeMs = 0; // This is set in ProcessMotions()
+
+    // Motion is initiated in ProcessMotions()
+    ResetMotion();
 
     bHandled = m_bInitialPressHandled = m_handler->OnButtonPress(m_name, bPressed);
 
@@ -152,9 +163,9 @@ bool CScalarFeature::OnAnalogMotion(float magnitude)
 
   // Update motion time
   if (!bActivated)
-    m_motionStartTimeMs = 0;
-  else if (m_motionStartTimeMs == 0)
-    m_motionStartTimeMs = XbmcThreads::SystemClockMillis();
+    ResetMotion();
+  else if (!InMotion())
+    StartMotion();
 
   // Log activation/deactivation
   if (m_bDigitalState != bActivated)
@@ -169,16 +180,16 @@ bool CScalarFeature::OnAnalogMotion(float magnitude)
 
 void CScalarFeature::ProcessDigitalMotion()
 {
-  if (m_motionStartTimeMs == 0)
+  if (!InMotion())
   {
     // Button was just pressed, record start time and exit (button press event
     // was already sent this frame)
-    m_motionStartTimeMs = XbmcThreads::SystemClockMillis();
+    StartMotion();
   }
   else
   {
     // Button has been pressed more than one event frame
-    const unsigned int elapsed = XbmcThreads::SystemClockMillis() - m_motionStartTimeMs;
+    const unsigned int elapsed = MotionTimeMs();
     m_handler->OnButtonHold(m_name, elapsed);
   }
 }
@@ -188,9 +199,7 @@ void CScalarFeature::ProcessAnalogMotion()
   float magnitude = m_analogState;
 
   // Calculate time elapsed since motion began
-  unsigned int elapsed = 0;
-  if (m_motionStartTimeMs > 0)
-    elapsed = XbmcThreads::SystemClockMillis() - m_motionStartTimeMs;
+  unsigned int elapsed = MotionTimeMs();
 
   // If analog value is discrete, ramp up magnitude
   if (m_bActivated && m_bDiscrete)
@@ -206,13 +215,167 @@ void CScalarFeature::ProcessAnalogMotion()
   m_handler->OnButtonMotion(m_name, magnitude, elapsed);
 }
 
+// --- CAxisFeature ------------------------------------------------------------
+
+CAxisFeature::CAxisFeature(const FeatureName& name, IInputHandler* handler, IButtonMap* buttonMap) :
+  CJoystickFeature(name, handler, buttonMap),
+  m_state(0.0f)
+{
+}
+
+bool CAxisFeature::OnDigitalMotion(const CDriverPrimitive& source, bool bPressed)
+{
+  return OnAnalogMotion(source, bPressed ? 1.0f : 0.0f);
+}
+
+void CAxisFeature::ProcessMotions(void)
+{
+  const float newState = m_axis.GetPosition();
+
+  const bool bActivated = (newState != 0.0f);
+
+  if (!AcceptsInput(bActivated))
+    return;
+
+  const bool bWasActivated = (m_state != 0.0f);
+
+  if (!bActivated && bWasActivated)
+    CLog::Log(LOGDEBUG, "Feature [ %s ] on %s deactivated", m_name.c_str());
+  else if (bActivated && !bWasActivated)
+  {
+    CLog::Log(LOGDEBUG, "Feature [ %s ] on %s activated %s", m_name.c_str(),
+              m_handler->ControllerID().c_str(),
+              newState > 0.0f ? "positive" : "negative");
+  }
+
+  if (bActivated || bWasActivated)
+  {
+    m_state = newState;
+
+    unsigned int motionTimeMs = 0;
+
+    if (bActivated)
+    {
+      if (!InMotion())
+        StartMotion();
+      else
+        motionTimeMs = MotionTimeMs();
+    }
+    else
+      ResetMotion();
+
+    switch (m_buttonMap->GetFeatureType(m_name))
+    {
+      case FEATURE_TYPE::WHEEL:
+        m_handler->OnWheelMotion(m_name, newState, motionTimeMs);
+        break;
+      case FEATURE_TYPE::THROTTLE:
+        m_handler->OnThrottleMotion(m_name, newState, motionTimeMs);
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+// --- CWheel ------------------------------------------------------------------
+
+CWheel::CWheel(const FeatureName& name, IInputHandler* handler, IButtonMap* buttonMap) :
+  CAxisFeature(name, handler, buttonMap)
+{
+}
+
+bool CWheel::OnAnalogMotion(const CDriverPrimitive& source, float magnitude)
+{
+  WHEEL_DIRECTION direction = WHEEL_DIRECTION::NONE;
+
+  std::vector<WHEEL_DIRECTION> dirs = {
+    WHEEL_DIRECTION::RIGHT,
+    WHEEL_DIRECTION::LEFT,
+  };
+
+  CDriverPrimitive primitive;
+  for (auto dir : dirs)
+  {
+    if (m_buttonMap->GetWheel(m_name, dir, primitive) && primitive == source)
+    {
+      direction = dir;
+      break;
+    }
+  }
+
+  // Feature must accept input to be considered handled
+  bool bHandled = AcceptsInput(magnitude > 0.0f);
+
+  switch (direction)
+  {
+    case WHEEL_DIRECTION::RIGHT:
+      m_axis.SetPositiveDistance(magnitude);
+      break;
+    case WHEEL_DIRECTION::LEFT:
+      m_axis.SetNegativeDistance(magnitude);
+      break;
+    default:
+      // Just in case, avoid sticking
+      m_axis.Reset();
+      break;
+  }
+
+  return bHandled;
+}
+
+// --- CThrottle ---------------------------------------------------------------
+
+CThrottle::CThrottle(const FeatureName& name, IInputHandler* handler, IButtonMap* buttonMap) :
+  CAxisFeature(name, handler, buttonMap)
+{
+}
+
+bool CThrottle::OnAnalogMotion(const CDriverPrimitive& source, float magnitude)
+{
+  THROTTLE_DIRECTION direction = THROTTLE_DIRECTION::NONE;
+
+  std::vector<THROTTLE_DIRECTION> dirs = {
+    THROTTLE_DIRECTION::UP,
+    THROTTLE_DIRECTION::DOWN,
+  };
+
+  CDriverPrimitive primitive;
+  for (auto dir : dirs)
+  {
+    if (m_buttonMap->GetThrottle(m_name, dir, primitive) && primitive == source)
+    {
+      direction = dir;
+      break;
+    }
+  }
+
+  // Feature must accept input to be considered handled
+  bool bHandled = AcceptsInput(magnitude > 0.0f);
+
+  switch (direction)
+  {
+    case THROTTLE_DIRECTION::UP:
+      m_axis.SetPositiveDistance(magnitude);
+      break;
+    case THROTTLE_DIRECTION::DOWN:
+      m_axis.SetNegativeDistance(magnitude);
+      break;
+    default:
+      // Just in case, avoid sticking
+      m_axis.Reset();
+      break;
+  }
+
+  return bHandled;
+}
+
 // --- CAnalogStick ------------------------------------------------------------
 
 CAnalogStick::CAnalogStick(const FeatureName& name, IInputHandler* handler, IButtonMap* buttonMap) :
   CJoystickFeature(name, handler, buttonMap),
   m_vertState(0.0f),
-  m_horizState(0.0f),
-  m_motionStartTimeMs(0)
+  m_horizState(0.0f)
 {
 }
 
@@ -223,7 +386,7 @@ bool CAnalogStick::OnDigitalMotion(const CDriverPrimitive& source, bool bPressed
 
 bool CAnalogStick::OnAnalogMotion(const CDriverPrimitive& source, float magnitude)
 {
-  ANALOG_STICK_DIRECTION direction = ANALOG_STICK_DIRECTION::UNKNOWN;
+  ANALOG_STICK_DIRECTION direction = ANALOG_STICK_DIRECTION::NONE;
 
   std::vector<ANALOG_STICK_DIRECTION> dirs = {
     ANALOG_STICK_DIRECTION::UP,
@@ -296,14 +459,14 @@ void CAnalogStick::ProcessMotions(void)
 
     if (bActivated)
     {
-      if (m_motionStartTimeMs == 0)
-        m_motionStartTimeMs = XbmcThreads::SystemClockMillis();
+      if (!InMotion())
+        StartMotion();
       else
-        motionTimeMs = XbmcThreads::SystemClockMillis() - m_motionStartTimeMs;
+        motionTimeMs = MotionTimeMs();
     }
     else
     {
-      m_motionStartTimeMs = 0;
+      ResetMotion();
     }
 
     m_handler->OnAnalogStickMotion(m_name, newHorizState, newVertState, motionTimeMs);

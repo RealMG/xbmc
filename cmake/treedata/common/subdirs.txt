@@ -17,9 +17,10 @@ xbmc/commons                                    commons
 xbmc/dbwrappers                                 dbwrappers
 xbmc/dialogs                                    dialogs
 xbmc/favourites                                 favourites
-xbmc/guiinfo                                    guiinfo
 xbmc/guilib                                     guilib
+xbmc/guilib/guiinfo                             guilib_guiinfo
 xbmc/input                                      input
+xbmc/input/actions                              input/actions
 xbmc/input/joysticks                            input/joysticks
 xbmc/input/joysticks/dialogs                    input/joysticks/dialogs
 xbmc/input/joysticks/generic                    input/joysticks/generic
@@ -42,5 +43,6 @@ xbmc/storage                                    storage
 xbmc/threads                                    threads
 xbmc/utils                                      utils
 xbmc/view                                       view
+xbmc/weather                                    weather
 xbmc/windowing                                  windowing
 xbmc/windows                                    windows

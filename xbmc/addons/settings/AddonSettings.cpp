@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2017 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include <algorithm>
@@ -24,16 +12,15 @@
 #include "AddonSettings.h"
 #include "FileItem.h"
 #include "GUIInfoManager.h"
+#include "LangInfo.h"
 #include "ServiceBroker.h"
-#include "addons/Addon.h"
 #include "addons/settings/GUIDialogAddonSettings.h"
 #include "addons/settings/SettingUrlEncodedString.h"
 #include "filesystem/Directory.h"
 #include "filesystem/File.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/LocalizeStrings.h"
 #include "messaging/ApplicationMessenger.h"
-#include "settings/AdvancedSettings.h"
-#include "settings/MediaSourceSettings.h"
 #include "settings/SettingAddon.h"
 #include "settings/SettingControl.h"
 #include "settings/SettingDateTime.h"
@@ -41,7 +28,6 @@
 #include "settings/lib/Setting.h"
 #include "settings/lib/SettingSection.h"
 #include "settings/lib/SettingsManager.h"
-#include "storage/MediaManager.h"
 #include "threads/SingleLock.h"
 #include "utils/FileExtensionProvider.h"
 #include "utils/log.h"
@@ -56,7 +42,7 @@ static const int UnknownSettingLabelIdStart = 100000;
 
 bool InfoBool(const std::string &condition, const std::string &value, SettingConstPtr setting, void *data)
 {
-  return g_infoManager.EvaluateBool(value);
+  return CServiceBroker::GetGUI()->GetInfoManager().EvaluateBool(value);
 }
 
 template<class TSetting>
@@ -313,7 +299,12 @@ bool CAddonSettings::Load(const CXBMCTinyXML& doc)
     }
 
     // try to load the old setting value
-    if (!newSetting->FromString(setting.second))
+    if (!newSetting)
+    {
+      CLog::Log(LOGERROR, "CAddonSettings[%s]: had null newSetting for value \"%s\" for setting %s",
+        m_addonId.c_str(), setting.second.c_str(), setting.first.c_str());
+    }
+    else if (!newSetting->FromString(setting.second))
     {
       CLog::Log(LOGWARNING, "CAddonSettings[%s]: failed to load value \"%s\" for setting %s",
         m_addonId.c_str(), setting.second.c_str(), setting.first.c_str());
@@ -400,7 +391,7 @@ void CAddonSettings::InitializeControls()
 
 void CAddonSettings::InitializeConditions()
 {
-  GetSettingsManager()->AddCondition("InfoBool", InfoBool);
+  GetSettingsManager()->AddDynamicCondition("InfoBool", InfoBool);
 }
 
 bool CAddonSettings::InitializeDefinitions(const CXBMCTinyXML& doc)
@@ -439,11 +430,10 @@ bool CAddonSettings::ParseSettingVersion(const CXBMCTinyXML& doc, uint32_t& vers
   return true;
 }
 
-std::shared_ptr<CSettingGroup> CAddonSettings::ParseOldSettingElement(const TiXmlElement* categoryElement, std::shared_ptr<CSettingCategory> category, std::set<std::string>& actionSettings)
+std::shared_ptr<CSettingGroup> CAddonSettings::ParseOldSettingElement(const TiXmlElement* categoryElement, std::shared_ptr<CSettingCategory> category, std::set<std::string>& actionSettings, std::set<std::string>& settingIds)
 {
     // build a vector of settings from the same category
     std::vector<std::shared_ptr<const CSetting>> categorySettings;
-    std::set<std::string> settingIds;
 
     // prepare for settings with enable/visible conditions
     struct SettingWithConditions {
@@ -602,9 +592,11 @@ std::shared_ptr<CSettingGroup> CAddonSettings::ParseOldSettingElement(const TiXm
           // turn the setting into a reference setting
           setting = std::make_shared<CSettingReference>(settingId, GetSettingsManager());
         }
-
-        // add the setting's identifier to the list of all identifiers
-        settingIds.insert(setting->GetId());
+        else
+        {
+          // add the setting's identifier to the list of all identifiers
+          settingIds.insert(setting->GetId());
+        }
 
         // add the setting to the list of settings from the same category
         categorySettings.push_back(setting);
@@ -655,7 +647,7 @@ std::shared_ptr<CSettingGroup> CAddonSettings::ParseOldSettingElement(const TiXm
     return group;
 }
 
-std::shared_ptr<CSettingCategory> CAddonSettings::ParseOldCategoryElement(uint32_t &categoryId, const TiXmlElement * categoryElement, std::set<std::string> &actionSettings)
+std::shared_ptr<CSettingCategory> CAddonSettings::ParseOldCategoryElement(uint32_t &categoryId, const TiXmlElement * categoryElement, std::set<std::string> &actionSettings, std::set<std::string> &settingIds)
 {
   // create the category
   auto category = std::make_shared<CSettingCategory>(StringUtils::Format("category%u", categoryId), GetSettingsManager());
@@ -667,7 +659,7 @@ std::shared_ptr<CSettingCategory> CAddonSettings::ParseOldCategoryElement(uint32
   category->SetLabel(categoryLabel);
 
   // prepare a setting group
-  auto group = ParseOldSettingElement(categoryElement, category, actionSettings);
+  auto group = ParseOldSettingElement(categoryElement, category, actionSettings, settingIds);
 
   // add the group to the category
   category->AddGroup(group);
@@ -689,14 +681,16 @@ bool CAddonSettings::InitializeFromOldSettingDefinitions(const CXBMCTinyXML& doc
   uint32_t categoryId = 0;
   std::set<std::string> actionSettings;
 
+  // Settings id set
+  std::set<std::string> settingIds;
 
   // Special case for no category settings
-  section->AddCategory(ParseOldCategoryElement(categoryId, root, actionSettings));
+  section->AddCategory(ParseOldCategoryElement(categoryId, root, actionSettings, settingIds));
 
   const TiXmlElement *categoryElement = root->FirstChildElement("category");
   while (categoryElement != nullptr)
   {
-    section->AddCategory(ParseOldCategoryElement(categoryId, categoryElement, actionSettings));
+    section->AddCategory(ParseOldCategoryElement(categoryId, categoryElement, actionSettings, settingIds));
 
     // look for the next category
     categoryElement = categoryElement->NextSiblingElement("category");
@@ -707,7 +701,7 @@ bool CAddonSettings::InitializeFromOldSettingDefinitions(const CXBMCTinyXML& doc
 
   // register the callback for action settings
   GetSettingsManager()->RegisterCallback(this, actionSettings);
-  
+
   return true;
 }
 
@@ -813,7 +807,7 @@ SettingPtr CAddonSettings::InitializeFromOldSettingTextIpAddress(const std::stri
       control->SetHidden(StringUtils::EqualsNoCase(option, "hidden"));
     }
   }
-  
+
   setting->SetDefault(defaultValue);
   setting->SetAllowEmpty(true);
   setting->SetControl(control);
@@ -1325,20 +1319,21 @@ bool CAddonSettings::ParseOldLabel(const TiXmlElement* element, const std::strin
   labelId = -1;
   if (element == nullptr)
     return false;
+  
+  // label value as a string
+  std::string labelString;
+  element->QueryStringAttribute("label", &labelString);
 
-  // try to parse the label as a translation number
-  if (element->QueryIntAttribute("label", &labelId) == TIXML_SUCCESS && labelId >= 0)
+
+  // try to parse the label as a pure number, i.e. a localized string
+  char *endptr;
+  labelId = std::strtol(labelString.c_str(), &endptr, 10);
+  if (endptr == nullptr || *endptr == '\0')
     return true;
 
-  std::string labelString;
 
-  // try to parse the label as a string
-  const auto labelStringPtr = element->Attribute("label");
-  if (labelStringPtr != nullptr)
-    labelString = labelStringPtr;
-
-  bool parsed = !labelString.empty();
   // as a last resort use the setting's identifier as a label
+  bool parsed = !labelString.empty();
   if (!parsed)
     labelString = settingId;
 
@@ -1462,7 +1457,6 @@ bool CAddonSettings::ParseOldCondition(std::shared_ptr<const CSetting> setting, 
 
 bool CAddonSettings::ParseOldConditionExpression(std::string str, ConditionExpression& expression)
 {
-  StringUtils::ToLower(str);
   StringUtils::Trim(str);
 
   size_t posOpen = str.find('(');
@@ -1514,7 +1508,7 @@ void CAddonSettings::FileEnumSettingOptionsFiller(std::shared_ptr<const CSetting
   // fetch the matching files/directories
   CFileItemList items;
   XFILE::CDirectory::GetDirectory(settingPath->GetSources().front(), items, masking, XFILE::DIR_FLAG_NO_FILE_DIRS);
-  
+
   // process the matching files/directories
   for (auto item : items)
   {

@@ -18,13 +18,22 @@ import java.util.concurrent.FutureTask;
 public class XBMCMediaSession
 {
   native void _onPlayRequested();
+
   native void _onPauseRequested();
+
   native void _onNextRequested();
+
   native void _onPreviousRequested();
+
   native void _onForwardRequested();
+
   native void _onRewindRequested();
+
   native void _onStopRequested();
+
   native void _onSeekRequested(long pos);
+
+  native boolean _onMediaButtonEvent(Intent intent);
 
   private static final String TAG = "XBMCMediaSession";
 
@@ -94,6 +103,15 @@ public class XBMCMediaSession
       super.onSeekTo(pos);
       _onSeekRequested(pos);
     }
+
+    @Override
+    public boolean onMediaButtonEvent(Intent intent)
+    {
+      Log.d(TAG, "onMediaButtonEvent: ");
+      if (!_onMediaButtonEvent(intent))
+        return super.onMediaButtonEvent(intent);
+      return true;
+    }
   }
 
   private MediaSession mSession = null;
@@ -136,7 +154,7 @@ public class XBMCMediaSession
   private void updateIntent(Intent intent)
   {
     PendingIntent pi = PendingIntent.getActivity(Main.MainActivity, 99 /*request code*/,
-        intent, PendingIntent.FLAG_UPDATE_CURRENT);
+            intent, PendingIntent.FLAG_UPDATE_CURRENT);
     mSession.setSessionActivity(pi);
   }
 

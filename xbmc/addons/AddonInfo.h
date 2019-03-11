@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "addons/AddonVersion.h"
 
@@ -36,7 +25,6 @@ namespace ADDON
     ADDON_VIZ,
     ADDON_SKIN,
     ADDON_PVRDLL,
-    ADDON_ADSPDLL,
     ADDON_INPUTSTREAM,
     ADDON_GAMEDLL,
     ADDON_PERIPHERALDLL,
@@ -61,6 +49,7 @@ namespace ADDON
     ADDON_RESOURCE_LANGUAGE,
     ADDON_RESOURCE_UISOUNDS,
     ADDON_RESOURCE_GAMES,
+    ADDON_RESOURCE_FONT,
     ADDON_VFS,
     ADDON_IMAGEDECODER,
     ADDON_SCRAPER_LIBRARY,
@@ -83,7 +72,27 @@ namespace ADDON
     ADDON_MAX
   } TYPE;
 
-  typedef std::map<std::string, std::pair<const AddonVersion, bool> > ADDONDEPS;
+  struct DependencyInfo
+  {
+    std::string id;
+    AddonVersion requiredVersion;
+    bool optional;
+    DependencyInfo(std::string id, AddonVersion requiredVersion, bool optional)
+        : id(id), requiredVersion(requiredVersion), optional(optional) {}
+
+    bool operator==(const DependencyInfo &rhs) const
+    {
+      return id == rhs.id &&
+             requiredVersion == rhs.requiredVersion &&
+             optional == rhs.optional;
+    }
+
+    bool operator!=(const DependencyInfo &rhs) const
+    {
+      return !(rhs == *this);
+    }
+  };
+
   typedef std::map<std::string, std::string> InfoMap;
   typedef std::map<std::string, std::string> ArtMap;
 
@@ -92,7 +101,7 @@ namespace ADDON
   class CAddonInfo
   {
   public:
-    CAddonInfo();
+    CAddonInfo() = default;
     CAddonInfo(std::string id, TYPE type);
 
     void SetMainType(TYPE type) { m_mainType = type; }
@@ -117,14 +126,13 @@ namespace ADDON
     const ArtMap& Art() const { return m_art; }
     const std::vector<std::string>& Screenshots() const { return m_screenshots; }
     const std::string& Disclaimer() const { return m_disclaimer; }
-    const ADDONDEPS& GetDeps() const { return m_dependencies; }
+    const std::vector<DependencyInfo>& GetDependencies() const { return m_dependencies; }
     const std::string& Broken() const { return m_broken; }
     const CDateTime& InstallDate() const { return m_installDate; }
     const CDateTime& LastUpdated() const { return m_lastUpdated; }
     const CDateTime& LastUsed() const { return m_lastUsed; }
     const std::string& Origin() const { return m_origin; }
     uint64_t PackageSize() const { return m_packageSize; }
-    const std::string& Language() const { return m_language; }
     const InfoMap& ExtraInfo() const { return m_extrainfo; }
     bool MeetsVersion(const AddonVersion &version) const;
 
@@ -142,7 +150,7 @@ namespace ADDON
     friend class ADDON::CAddonBuilder;
 
     std::string m_id;
-    TYPE m_mainType;
+    TYPE m_mainType = ADDON_UNKNOWN;
 
     AddonVersion m_version{"0.0.0"};
     AddonVersion m_minversion{"0.0.0"};
@@ -158,14 +166,13 @@ namespace ADDON
     ArtMap m_art;
     std::vector<std::string> m_screenshots;
     std::string m_disclaimer;
-    ADDONDEPS m_dependencies;
+    std::vector<DependencyInfo> m_dependencies;
     std::string m_broken;
     CDateTime m_installDate;
     CDateTime m_lastUpdated;
     CDateTime m_lastUsed;
     std::string m_origin;
-    uint64_t m_packageSize;
-    std::string m_language;
+    uint64_t m_packageSize = 0;
     std::string m_libname;
     InfoMap m_extrainfo;
   };

@@ -1,26 +1,15 @@
 /*
- *      Copyright (C) 2012-2013 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "interfaces/AnnouncementManager.h"
 #include "input/XBMC_vkeys.h"
 #include "input/InputCodingTable.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIEditControl.h"
 #include "guilib/GUILabelControl.h"
 #include "guilib/GUIWindowManager.h"
@@ -32,12 +21,13 @@
 #include "GUIDialogKeyboardGeneric.h"
 #include "ServiceBroker.h"
 #include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "utils/RegExp.h"
 #include "utils/Variant.h"
 #include "utils/StringUtils.h"
 #include "messaging/ApplicationMessenger.h"
 #include "utils/CharsetConverter.h"
-#include "windowing/WindowingFactory.h"
+#include "windowing/WinSystem.h"
 #include "utils/log.h"
 
 #ifdef TARGET_ANDROID
@@ -80,8 +70,6 @@ using namespace KODI::MESSAGING;
 CGUIDialogKeyboardGeneric::CGUIDialogKeyboardGeneric()
 : CGUIDialog(WINDOW_DIALOG_KEYBOARD, "DialogKeyboard.xml")
 , CGUIKeyboard()
-, m_num(0)
-, m_listfont(nullptr)
 , m_pCharCallback(NULL)
 {
   m_bIsConfirmed = false;
@@ -100,7 +88,6 @@ CGUIDialogKeyboardGeneric::CGUIDialogKeyboardGeneric()
 
 void CGUIDialogKeyboardGeneric::OnWindowLoaded()
 {
-  g_Windowing.EnableTextInput(false);
   CGUIEditControl *edit = static_cast<CGUIEditControl*>(GetControl(CTL_EDIT));
   if (edit)
   {
@@ -142,16 +129,17 @@ void CGUIDialogKeyboardGeneric::OnInitWindow()
   m_currentLayout = 0;
   m_layouts.clear();
   const KeyboardLayouts& keyboardLayouts = CKeyboardLayoutManager::GetInstance().GetLayouts();
-  std::vector<CVariant> layoutNames = CServiceBroker::GetSettings().GetList(CSettings::SETTING_LOCALE_KEYBOARDLAYOUTS);
-  std::string activeLayout = CServiceBroker::GetSettings().GetString(CSettings::SETTING_LOCALE_ACTIVEKEYBOARDLAYOUT);
+  const std::shared_ptr<CSettings> settings = CServiceBroker::GetSettingsComponent()->GetSettings();
+  std::vector<CVariant> layoutNames = settings->GetList(CSettings::SETTING_LOCALE_KEYBOARDLAYOUTS);
+  std::string activeLayout = settings->GetString(CSettings::SETTING_LOCALE_ACTIVEKEYBOARDLAYOUT);
 
-  for (std::vector<CVariant>::const_iterator layoutName = layoutNames.begin(); layoutName != layoutNames.end(); ++layoutName)
+  for (const auto& layoutName : layoutNames)
   {
-    KeyboardLayouts::const_iterator keyboardLayout = keyboardLayouts.find(layoutName->asString());
+    const auto keyboardLayout = keyboardLayouts.find(layoutName.asString());
     if (keyboardLayout != keyboardLayouts.end())
     {
-      m_layouts.push_back(keyboardLayout->second);
-      if (layoutName->asString() == activeLayout)
+      m_layouts.emplace_back(keyboardLayout->second);
+      if (layoutName.asString() == activeLayout)
         m_currentLayout = m_layouts.size() - 1;
     }
   }
@@ -190,27 +178,29 @@ void CGUIDialogKeyboardGeneric::OnInitWindow()
   data["title"] = m_strHeading;
   data["type"] = !m_hiddenInput ? "keyboard" : "password";
   data["value"] = GetText();
-  ANNOUNCEMENT::CAnnouncementManager::GetInstance().Announce(ANNOUNCEMENT::Input, "xbmc", "OnInputRequested", data);
+  CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::Input, "xbmc", "OnInputRequested", data);
 }
 
 bool CGUIDialogKeyboardGeneric::OnAction(const CAction &action)
 {
+  int actionId = action.GetID();
   bool handled = true;
-  if (action.GetID() == (KEY_VKEY | XBMCVK_BACK))
+  if (actionId == (KEY_VKEY | XBMCVK_BACK))
     Backspace();
-  else if (action.GetID() == ACTION_ENTER || (m_isKeyboardNavigationMode && action.GetID() == ACTION_SELECT_ITEM))
+  else if (actionId == ACTION_ENTER ||
+           (actionId == ACTION_SELECT_ITEM && (m_isKeyboardNavigationMode || GetFocusedControlID() == CTL_EDIT)))
     OnOK();
-  else if (action.GetID() == ACTION_SHIFT)
+  else if (actionId == ACTION_SHIFT)
     OnShift();
-  else if (action.GetID() == ACTION_SYMBOLS)
+  else if (actionId == ACTION_SYMBOLS)
     OnSymbols();
   // don't handle move left/right and select in the edit control
   else if (!m_isKeyboardNavigationMode &&
-           (action.GetID() == ACTION_MOVE_LEFT ||
-           action.GetID() == ACTION_MOVE_RIGHT ||
-           action.GetID() == ACTION_SELECT_ITEM))
+           (actionId == ACTION_MOVE_LEFT ||
+           actionId == ACTION_MOVE_RIGHT ||
+           actionId == ACTION_SELECT_ITEM))
     handled = false;
-  else if (action.GetID() == ACTION_VOICE_RECOGNIZE)
+  else if (actionId == ACTION_VOICE_RECOGNIZE)
     OnVoiceRecognition();
   else
   {
@@ -225,9 +215,9 @@ bool CGUIDialogKeyboardGeneric::OnAction(const CAction &action)
       CGUIControl *edit = GetControl(CTL_EDIT);
       if (edit)
         handled = edit->OnAction(action);
-      if (!handled && action.GetID() >= KEY_VKEY && action.GetID() < KEY_ASCII)
+      if (!handled && actionId >= KEY_VKEY && actionId < KEY_ASCII)
       {
-        BYTE b = action.GetID() & 0xFF;
+        unsigned char b = actionId & 0xFF;
         if (b == XBMCVK_TAB)
         {
           // Toggle left/right key mode
@@ -315,7 +305,6 @@ bool CGUIDialogKeyboardGeneric::OnMessage(CGUIMessage& message)
     break;
 
   case GUI_MSG_SET_TEXT:
-  case GUI_MSG_INPUT_TEXT_EDIT:
     {
       // the edit control only handles these messages if it is either focused
       // or its specific control ID is set in the message. As neither is the
@@ -395,7 +384,7 @@ void CGUIDialogKeyboardGeneric::Backspace()
     g_charsetConverter.utf8ToW(m_hzcode, tmp);
     tmp.erase(tmp.length() - 1, 1);
     g_charsetConverter.wToUTF8(tmp, m_hzcode);
-    
+
     switch (m_codingtable->GetType())
     {
     case IInputCodingTable::TYPE_WORD_LIST:
@@ -522,7 +511,7 @@ void CGUIDialogKeyboardGeneric::OnDeinitWindow(int nextWindowID)
   // reset the heading (we don't always have this)
   m_strHeading = "";
 
-  ANNOUNCEMENT::CAnnouncementManager::GetInstance().Announce(ANNOUNCEMENT::Input, "xbmc", "OnInputFinished");
+  CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::Input, "xbmc", "OnInputFinished");
 }
 
 void CGUIDialogKeyboardGeneric::MoveCursor(int iAmount)
@@ -543,7 +532,7 @@ void CGUIDialogKeyboardGeneric::OnLayout()
   if (m_currentLayout >= m_layouts.size())
     m_currentLayout = 0;
   CKeyboardLayout layout = m_layouts.empty() ? CKeyboardLayout() : m_layouts[m_currentLayout];
-  CServiceBroker::GetSettings().SetString(CSettings::SETTING_LOCALE_ACTIVEKEYBOARDLAYOUT, layout.GetName());
+  CServiceBroker::GetSettingsComponent()->GetSettings()->SetString(CSettings::SETTING_LOCALE_ACTIVEKEYBOARDLAYOUT, layout.GetName());
   UpdateButtons();
 }
 
@@ -633,7 +622,7 @@ void CGUIDialogKeyboardGeneric::Cancel()
 
 bool CGUIDialogKeyboardGeneric::ShowAndGetInput(char_callback_t pCallback, const std::string &initialString, std::string &typedString, const std::string &heading, bool bHiddenInput)
 {
-  CGUIDialogKeyboardGeneric *pKeyboard = g_windowManager.GetWindow<CGUIDialogKeyboardGeneric>(WINDOW_DIALOG_KEYBOARD);
+  CGUIDialogKeyboardGeneric *pKeyboard = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogKeyboardGeneric>(WINDOW_DIALOG_KEYBOARD);
 
   if (!pKeyboard)
     return false;
@@ -687,7 +676,7 @@ void CGUIDialogKeyboardGeneric::ShowWordList(int direct)
 {
   CSingleLock lock(m_CS);
   std::wstring hzlist = L"";
-  g_graphicsContext.SetScalingResolution(m_coordsRes, true);
+  CServiceBroker::GetWinSystem()->GetGfxContext().SetScalingResolution(m_coordsRes, true);
   float width = m_listfont->GetCharWidth(L'<') + m_listfont->GetCharWidth(L'>');
   float spacewidth = m_listfont->GetCharWidth(L' ');
   float numwidth = m_listfont->GetCharWidth(L'1') + m_listfont->GetCharWidth(L'.');

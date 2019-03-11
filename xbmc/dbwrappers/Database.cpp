@@ -1,41 +1,30 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Database.h"
 #include "settings/AdvancedSettings.h"
 #include "filesystem/SpecialProtocol.h"
-#include "filesystem/File.h"
-#include "profiles/ProfilesManager.h"
+#include "profiles/ProfileManager.h"
+#include "settings/SettingsComponent.h"
 #include "utils/log.h"
 #include "utils/SortUtils.h"
 #include "utils/StringUtils.h"
 #include "sqlitedataset.h"
 #include "DatabaseManager.h"
 #include "DbUrl.h"
+#include "ServiceBroker.h"
 
-#ifdef HAS_MYSQL
+#if defined(HAS_MYSQL) || defined(HAS_MARIADB)
 #include "mysqldataset.h"
 #endif
 
 #ifdef TARGET_POSIX
-#include "linux/ConvUtils.h"
+#include "platform/linux/ConvUtils.h"
 #endif
 
 using namespace dbiplus;
@@ -142,14 +131,91 @@ bool CDatabase::ExistsSubQuery::BuildSQL(std::string & strSQL)
       strWhere += " AND ";
     strWhere += where;
   }
-  if (!strWhere.empty())      
+  if (!strWhere.empty())
     strSQL += " WHERE " + strWhere;
 
   strSQL += ")";
   return true;
 }
 
-CDatabase::CDatabase(void)
+CDatabase::DatasetLayout::DatasetLayout(size_t totalfields)
+{
+  m_fields.resize(totalfields, DatasetFieldInfo(false, false, -1));
+}
+
+void CDatabase::DatasetLayout::SetField(int fieldNo, const std::string &strField, bool bOutput /*= false*/)
+{  
+  if (fieldNo >= 0 && fieldNo < static_cast<int>(m_fields.size()))
+  {
+    m_fields[fieldNo].strField = strField;
+    m_fields[fieldNo].fetch = true;
+    m_fields[fieldNo].output = bOutput;
+  }
+}
+
+void CDatabase::DatasetLayout::AdjustRecordNumbers(int offset)
+{
+  int recno = 0;
+  for (auto& field : m_fields)
+  {
+    if (field.fetch)
+    {
+      field.recno = recno + offset;
+      ++recno;
+    }
+  }
+}
+
+bool CDatabase::DatasetLayout::GetFetch(int fieldno)
+{
+  if (fieldno >= 0 && fieldno < static_cast<int>(m_fields.size()))
+    return m_fields[fieldno].fetch;
+  return false;
+}
+
+bool CDatabase::DatasetLayout::GetOutput(int fieldno)
+{
+  if (fieldno >= 0 && fieldno < static_cast<int>(m_fields.size()))
+    return m_fields[fieldno].output;
+  return false;
+}
+
+int CDatabase::DatasetLayout::GetRecNo(int fieldno)
+{
+  if (fieldno >= 0 && fieldno < static_cast<int>(m_fields.size()))
+    return m_fields[fieldno].recno;
+  return -1;
+}
+
+const std::string CDatabase::DatasetLayout::GetFields()
+{
+  std::string strSQL;
+  for (const auto& field : m_fields)
+  {
+    if (!field.strField.empty() && field.fetch)
+    {
+      if (strSQL.empty())
+        strSQL = field.strField;
+      else
+        strSQL += ", " + field.strField;
+    }
+  }
+
+  return strSQL;
+}
+
+bool CDatabase::DatasetLayout::HasFilterFields()
+{
+  for (const auto& field : m_fields)
+  {
+    if (field.fetch)
+      return true;
+  }
+  return false;
+}
+
+CDatabase::CDatabase() :
+  m_profileManager(*CServiceBroker::GetSettingsComponent()->GetProfileManager())
 {
   m_openCount = 0;
   m_sqlite = true;
@@ -363,7 +429,7 @@ bool CDatabase::Open(const DatabaseSettings &settings)
   }
 
   // check our database manager to see if this database can be opened
-  if (!CDatabaseManager::GetInstance().CanOpen(GetBaseDBName()))
+  if (!CServiceBroker::GetDatabaseManager().CanOpen(GetBaseDBName()))
     return false;
 
   DatabaseSettings dbSettings = settings;
@@ -378,7 +444,7 @@ void CDatabase::InitSettings(DatabaseSettings &dbSettings)
 {
   m_sqlite = true;
 
-#ifdef HAS_MYSQL
+#if defined(HAS_MYSQL) || defined(HAS_MARIADB)
   if (dbSettings.type == "mysql")
   {
     // check we have all information before we cancel the fallback
@@ -396,7 +462,7 @@ void CDatabase::InitSettings(DatabaseSettings &dbSettings)
   {
     dbSettings.type = "sqlite3";
     if (dbSettings.host.empty())
-      dbSettings.host = CSpecialProtocol::TranslatePath(CProfilesManager::GetInstance().GetDatabaseFolder());
+      dbSettings.host = CSpecialProtocol::TranslatePath(m_profileManager.GetDatabaseFolder());
   }
 
   // use separate, versioned database
@@ -421,7 +487,7 @@ bool CDatabase::Connect(const std::string &dbName, const DatabaseSettings &dbSet
   {
     m_pDB.reset( new SqliteDatabase() ) ;
   }
-#ifdef HAS_MYSQL
+#if defined(HAS_MYSQL) || defined(HAS_MARIADB)
   else if (dbSettings.type == "mysql")
   {
     m_pDB.reset( new MysqlDatabase() ) ;

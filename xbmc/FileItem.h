@@ -1,27 +1,16 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 /*!
  \file FileItem.h
  \brief
- */
-#pragma once
-
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
  */
 
 #include <map>
@@ -32,7 +21,7 @@
 
 #include "addons/IAddon.h"
 #include "guilib/GUIListItem.h"
-#include "GUIPassword.h"
+#include "LockType.h"
 #include "pvr/PVRTypes.h"
 #include "threads/CriticalSection.h"
 #include "utils/IArchivable.h"
@@ -212,6 +201,7 @@ public:
   bool IsOpticalMediaFile() const;
   bool IsDVDFile(bool bVobs = true, bool bIfos = true) const;
   bool IsBDFile() const;
+  bool IsBluray() const;
   bool IsRAR() const;
   bool IsAPK() const;
   bool IsZIP() const;
@@ -238,7 +228,6 @@ public:
   bool IsDeletedPVRRecording() const;
   bool IsInProgressPVRRecording() const;
   bool IsPVRTimer() const;
-  bool IsPVRRadioRDS() const;
   bool IsType(const char *ext) const;
   bool IsVirtualDirectoryRoot() const;
   bool IsReadOnly() const;
@@ -327,21 +316,6 @@ public:
     return m_pvrTimerInfoTag;
   }
 
-  inline bool HasPVRRadioRDSInfoTag() const
-  {
-    return m_pvrRadioRDSInfoTag.get() != NULL;
-  }
-
-  inline const PVR::CPVRRadioRDSInfoTagPtr GetPVRRadioRDSInfoTag() const
-  {
-    return m_pvrRadioRDSInfoTag;
-  }
-
-  inline void SetPVRRadioRDSInfoTag(const PVR::CPVRRadioRDSInfoTagPtr& tag)
-  {
-    m_pvrRadioRDSInfoTag = tag;
-  }
-
   /*!
    \brief return the item to play. will be almost 'this', but can be different (e.g. "Play recording" from PVR EPG grid window)
    \return the item to play
@@ -366,7 +340,7 @@ public:
    \param partNumber will be filled with the part number if item has a resume point set, is unchanged otherwise
    \return True if the item has a resume point set, false otherwise.
    */
-  bool GetCurrentResumeTimeAndPartNumber(int& startOffset, int& partNumber) const;
+  bool GetCurrentResumeTimeAndPartNumber(int64_t& startOffset, int& partNumber) const;
 
   inline bool HasPictureInfoTag() const
   {
@@ -547,9 +521,9 @@ public:
   std::string m_strTitle;
   int m_iprogramCount;
   int m_idepth;
-  int m_lStartOffset;
+  int64_t m_lStartOffset;
   int m_lStartPartNumber;
-  int m_lEndOffset;
+  int64_t m_lEndOffset;
   LockType m_iLockMode;
   std::string m_strLockCode;
   int m_iHasLock; // 0 - no lock 1 - lock, but unlocked 2 - locked
@@ -575,7 +549,7 @@ private:
   /*!
    \brief If given channel is radio, fill item's music tag from given epg tag and channel info.
    */
-  void FillMusicInfoTag(const PVR::CPVRChannelPtr channel, const PVR::CPVREpgInfoTagPtr tag);
+  void FillMusicInfoTag(const PVR::CPVRChannelPtr& channel, const PVR::CPVREpgInfoTagPtr& tag);
 
   std::string m_strPath;            ///< complete path to item
   std::string m_strDynPath;
@@ -593,7 +567,6 @@ private:
   PVR::CPVRChannelPtr m_pvrChannelInfoTag;
   PVR::CPVRRecordingPtr m_pvrRecordingInfoTag;
   PVR::CPVRTimerInfoTagPtr m_pvrTimerInfoTag;
-  PVR::CPVRRadioRDSInfoTagPtr m_pvrRadioRDSInfoTag;
   CPictureInfoTag* m_pictureInfoTag;
   std::shared_ptr<const ADDON::IAddon> m_addonInfo;
   KODI::GAME::CGameInfoTag* m_gameInfoTag;
@@ -668,7 +641,7 @@ public:
   void Remove(int iItem);
   CFileItemPtr Get(int iItem);
   const CFileItemPtr Get(int iItem) const;
-  const VECFILEITEMS GetList() const { return m_items; }
+  const VECFILEITEMS& GetList() const { return m_items; }
   CFileItemPtr Get(const std::string& strPath);
   const CFileItemPtr Get(const std::string& strPath) const;
   int Size() const;
@@ -799,15 +772,15 @@ private:
 
   VECFILEITEMS m_items;
   MAPFILEITEMS m_map;
-  bool m_ignoreURLOptions;
-  bool m_fastLookup;
+  bool m_ignoreURLOptions = false;
+  bool m_fastLookup = false;
   SortDescription m_sortDescription;
-  bool m_sortIgnoreFolders;
-  CACHE_TYPE m_cacheToDisc;
-  bool m_replaceListing;
+  bool m_sortIgnoreFolders = false;
+  CACHE_TYPE m_cacheToDisc = CACHE_IF_SLOW;
+  bool m_replaceListing = false;
   std::string m_content;
 
   std::vector<GUIViewSortDetails> m_sortDetails;
 
-  CCriticalSection m_lock;
+  mutable CCriticalSection m_lock;
 };

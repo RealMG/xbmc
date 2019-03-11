@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PVRItem.h"
@@ -49,7 +37,32 @@ namespace PVR
     }
     else
     {
-      CLog::Log(LOGERROR, "CPVRItem - %s - unsupported item type!", __FUNCTION__);
+      CLog::LogF(LOGERROR, "Unsupported item type!");
+    }
+    return CPVREpgInfoTagPtr();
+  }
+
+  CPVREpgInfoTagPtr CPVRItem::GetNextEpgInfoTag() const
+  {
+    if (m_item->IsEPG())
+    {
+      const CPVRChannelPtr channel = m_item->GetEPGInfoTag()->Channel();
+      if (channel)
+        return channel->GetEPGNext();
+    }
+    else if (m_item->IsPVRChannel())
+    {
+      return m_item->GetPVRChannelInfoTag()->GetEPGNext();
+    }
+    else if (m_item->IsPVRTimer())
+    {
+      const CPVRChannelPtr channel =m_item->GetPVRTimerInfoTag()->Channel();
+      if (channel)
+        return channel->GetEPGNext();
+    }
+    else
+    {
+      CLog::LogF(LOGERROR, "Unsupported item type!");
     }
     return CPVREpgInfoTagPtr();
   }
@@ -66,13 +79,11 @@ namespace PVR
     }
     else if (m_item->IsPVRTimer())
     {
-      const CPVREpgInfoTagPtr epgTag(m_item->GetPVRTimerInfoTag()->GetEpgInfoTag());
-      if (epgTag)
-        return epgTag->Channel();
+      return m_item->GetPVRTimerInfoTag()->Channel();
     }
     else
     {
-      CLog::Log(LOGERROR, "CPVRItem - %s - unsupported item type!", __FUNCTION__);
+      CLog::LogF(LOGERROR, "Unsupported item type!");
     }
     return CPVRChannelPtr();
   }
@@ -101,7 +112,7 @@ namespace PVR
     }
     else
     {
-      CLog::Log(LOGERROR, "CPVRItem - %s - unsupported item type!", __FUNCTION__);
+      CLog::LogF(LOGERROR, "Unsupported item type!");
     }
     return CPVRTimerInfoTagPtr();
   }
@@ -118,7 +129,7 @@ namespace PVR
     }
     else
     {
-      CLog::Log(LOGERROR, "CPVRItem - %s - unsupported item type!", __FUNCTION__);
+      CLog::LogF(LOGERROR, "Unsupported item type!");
     }
     return CPVRRecordingPtr();
   }
@@ -140,7 +151,7 @@ namespace PVR
     }
     else
     {
-      CLog::Log(LOGERROR, "CPVRItem - %s - unsupported item type!", __FUNCTION__);
+      CLog::LogF(LOGERROR, "Unsupported item type!");
     }
     return false;
   }

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.5)
 project(kodi-addons)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
@@ -75,6 +75,11 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT OR NOT CMAKE_INSTALL_PREFIX)
 endif()
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_INSTALL_PREFIX})
 
+if (CMAKE_SYSTEM_NAME STREQUAL WindowsStore)
+  set(BUILD_ARGS_ext -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
+                     -DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION})
+endif()
+
 set(BUILD_ARGS -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
                -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
                -DPACKAGE_CONFIG_PATH=${ADDON_DEPENDS_PATH}/lib/pkgconfig
@@ -86,7 +91,8 @@ set(BUILD_ARGS -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
                -DCORE_SYSTEM_NAME=${CORE_SYSTEM_NAME}
                -DBUILD_SHARED_LIBS=1
                -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
-               -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS})
+               -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
+               ${BUILD_ARGS_ext})
 
 if(MSVC)
   # move cmake specific targets to a CMakePredefinedTargets folder in Visual Studio
@@ -397,8 +403,12 @@ foreach(addon ${addons})
           endif()
 
           # create a forwarding target to the addon-package target
+          get_property(_isMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+          if(_isMultiConfig)
+            set(config --config $<CONFIG>)
+          endif()
           add_custom_target(package-${id}
-                    COMMAND ${CMAKE_COMMAND} --build ${id}-prefix/src/${id}-build --target addon-package
+                    COMMAND ${CMAKE_COMMAND} --build ${id}-prefix/src/${id}-build ${config} --target addon-package
                     DEPENDS ${id})
           add_dependencies(package-addons package-${id})
 

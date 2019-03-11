@@ -1,27 +1,17 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "utils/SystemInfo.h"
 #include "settings/Settings.h"
 #include "GUIInfoManager.h"
+#if defined(TARGET_WINDOWS)
 #include "platform/win32/CharsetConverter.h"
+#endif
 
 #include "gtest/gtest.h"
 
@@ -85,7 +75,7 @@ TEST_F(TestSystemInfo, GetKernelVersionFull)
   EXPECT_FALSE(g_sysinfo.GetKernelVersionFull().empty()) << "'GetKernelVersionFull()' must not return empty string";
   EXPECT_STRNE("0.0.0", g_sysinfo.GetKernelVersionFull().c_str()) << "'GetKernelVersionFull()' must not return '0.0.0'";
   EXPECT_STRNE("0.0", g_sysinfo.GetKernelVersionFull().c_str()) << "'GetKernelVersionFull()' must not return '0.0'";
-  EXPECT_EQ(0, g_sysinfo.GetKernelVersionFull().find_first_of("0123456789")) << "'GetKernelVersionFull()' must not return version not starting from digit";
+  EXPECT_EQ(0U, g_sysinfo.GetKernelVersionFull().find_first_of("0123456789")) << "'GetKernelVersionFull()' must not return version not starting from digit";
 }
 
 TEST_F(TestSystemInfo, GetKernelVersion)
@@ -93,7 +83,7 @@ TEST_F(TestSystemInfo, GetKernelVersion)
   EXPECT_FALSE(g_sysinfo.GetKernelVersion().empty()) << "'GetKernelVersion()' must not return empty string";
   EXPECT_STRNE("0.0.0", g_sysinfo.GetKernelVersion().c_str()) << "'GetKernelVersion()' must not return '0.0.0'";
   EXPECT_STRNE("0.0", g_sysinfo.GetKernelVersion().c_str()) << "'GetKernelVersion()' must not return '0.0'";
-  EXPECT_EQ(0, g_sysinfo.GetKernelVersion().find_first_of("0123456789")) << "'GetKernelVersion()' must not return version not starting from digit";
+  EXPECT_EQ(0U, g_sysinfo.GetKernelVersion().find_first_of("0123456789")) << "'GetKernelVersion()' must not return version not starting from digit";
   EXPECT_EQ(std::string::npos, g_sysinfo.GetKernelVersion().find_first_not_of("0123456789.")) << "'GetKernelVersion()' must not return version with not only digits and dots";
 }
 
@@ -130,7 +120,7 @@ TEST_F(TestSystemInfo, DISABLED_GetOsVersion)
   EXPECT_FALSE(g_sysinfo.GetOsVersion().empty()) << "'GetOsVersion()' must not return empty string";
   EXPECT_STRNE("0.0.0", g_sysinfo.GetOsVersion().c_str()) << "'GetOsVersion()' must not return '0.0.0'";
   EXPECT_STRNE("0.0", g_sysinfo.GetOsVersion().c_str()) << "'GetOsVersion()' must not return '0.0'";
-  EXPECT_EQ(0, g_sysinfo.GetOsVersion().find_first_of("0123456789")) << "'GetOsVersion()' must not return version not starting from digit";
+  EXPECT_EQ(0U, g_sysinfo.GetOsVersion().find_first_of("0123456789")) << "'GetOsVersion()' must not return version not starting from digit";
   EXPECT_EQ(std::string::npos, g_sysinfo.GetOsVersion().find_first_not_of("0123456789.")) << "'GetOsVersion()' must not return version with not only digits and dots";
 }
 

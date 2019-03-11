@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Peripheral.h"
@@ -23,7 +11,7 @@
 #include <utility>
 
 #include "guilib/LocalizeStrings.h"
-#include "input/joysticks/IInputHandler.h"
+#include "input/joysticks/interfaces/IInputHandler.h"
 #include "peripherals/addons/PeripheralAddon.h"
 #include "peripherals/bus/virtual/PeripheralBusAddon.h"
 #include "peripherals/Peripherals.h"
@@ -458,7 +446,7 @@ bool CPeripheral::SetSetting(const std::string &strKey, const std::string &strVa
       }
     }
     else if ((*it).second.m_setting->GetType() == SettingType::Integer)
-      bChanged = SetSetting(strKey, (int) (strValue.empty() ? 0 : atoi(strValue.c_str())));
+      bChanged = SetSetting(strKey, strValue.empty() ? 0 : atoi(strValue.c_str()));
     else if ((*it).second.m_setting->GetType() == SettingType::Number)
       bChanged = SetSetting(strKey, (float) (strValue.empty() ? 0 : atof(strValue.c_str())));
     else if ((*it).second.m_setting->GetType() == SettingType::Boolean)
@@ -584,24 +572,72 @@ void CPeripheral::UnregisterInputHandler(IInputHandler* handler)
   }
 }
 
+void CPeripheral::RegisterKeyboardHandler(KEYBOARD::IKeyboardInputHandler* handler, bool bPromiscuous)
+{
+  auto it = m_keyboardHandlers.find(handler);
+  if (it == m_keyboardHandlers.end())
+  {
+    std::unique_ptr<CAddonInputHandling> addonInput(new CAddonInputHandling(m_manager, this, handler));
+    RegisterKeyboardDriverHandler(addonInput.get(), bPromiscuous);
+    m_keyboardHandlers[handler] = std::move(addonInput);
+  }
+}
+
+void CPeripheral::UnregisterKeyboardHandler(KEYBOARD::IKeyboardInputHandler* handler)
+{
+  auto it = m_keyboardHandlers.find(handler);
+  if (it != m_keyboardHandlers.end())
+  {
+    UnregisterKeyboardDriverHandler(it->second.get());
+    m_keyboardHandlers.erase(it);
+  }
+}
+
+void CPeripheral::RegisterMouseHandler(MOUSE::IMouseInputHandler* handler, bool bPromiscuous)
+{
+  auto it = m_mouseHandlers.find(handler);
+  if (it == m_mouseHandlers.end())
+  {
+    std::unique_ptr<CAddonInputHandling> addonInput(new CAddonInputHandling(m_manager, this, handler));
+    RegisterMouseDriverHandler(addonInput.get(), bPromiscuous);
+    m_mouseHandlers[handler] = std::move(addonInput);
+  }
+}
+
+void CPeripheral::UnregisterMouseHandler(MOUSE::IMouseInputHandler* handler)
+{
+  auto it = m_mouseHandlers.find(handler);
+  if (it != m_mouseHandlers.end())
+  {
+    UnregisterMouseDriverHandler(it->second.get());
+    m_mouseHandlers.erase(it);
+  }
+}
+
 void CPeripheral::RegisterJoystickButtonMapper(IButtonMapper* mapper)
 {
-  std::map<IButtonMapper*, IDriverHandler*>::iterator it = m_buttonMappers.find(mapper);
+  auto it = m_buttonMappers.find(mapper);
   if (it == m_buttonMappers.end())
   {
-    IDriverHandler* addonMapping = new CAddonButtonMapping(m_manager, this, mapper);
-    RegisterJoystickDriverHandler(addonMapping, false);
-    m_buttonMappers[mapper] = addonMapping;
+    std::unique_ptr<CAddonButtonMapping> addonMapping(new CAddonButtonMapping(m_manager, this, mapper));
+
+    RegisterJoystickDriverHandler(addonMapping.get(), false);
+    RegisterKeyboardDriverHandler(addonMapping.get(), false);
+    RegisterMouseDriverHandler(addonMapping.get(), false);
+
+    m_buttonMappers[mapper] = std::move(addonMapping);
   }
 }
 
 void CPeripheral::UnregisterJoystickButtonMapper(IButtonMapper* mapper)
 {
-  std::map<IButtonMapper*, IDriverHandler*>::iterator it = m_buttonMappers.find(mapper);
+  auto it = m_buttonMappers.find(mapper);
   if (it != m_buttonMappers.end())
   {
-    UnregisterJoystickDriverHandler(it->second);
-    delete it->second;
+    UnregisterMouseDriverHandler(it->second.get());
+    UnregisterKeyboardDriverHandler(it->second.get());
+    UnregisterJoystickDriverHandler(it->second.get());
+
     m_buttonMappers.erase(it);
   }
 }

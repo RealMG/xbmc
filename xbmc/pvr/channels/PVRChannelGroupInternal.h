@@ -1,30 +1,18 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "pvr/PVREvent.h"
+#pragma once
+
 #include "pvr/channels/PVRChannelGroup.h"
 
 namespace PVR
 {
-  /** XBMC's internal group, the group containing all channels */
+  enum class PVREvent;
 
   class CPVRChannelGroupInternal : public CPVRChannelGroup
   {
@@ -48,9 +36,10 @@ namespace PVR
     /*!
      * @brief Callback for add-ons to update a channel.
      * @param channel The updated channel.
+     * @param channelNumber A new channel number for the channel.
      * @return The new/updated channel.
      */
-    CPVRChannelPtr UpdateFromClient(const CPVRChannelPtr &channel, unsigned int iChannelNumber = 0);
+    CPVRChannelPtr UpdateFromClient(const CPVRChannelPtr &channel, const CPVRChannelNumber &channelNumber);
 
     /*!
      * @see CPVRChannelGroup::IsGroupMember
@@ -60,22 +49,12 @@ namespace PVR
     /*!
      * @see CPVRChannelGroup::AddToGroup
      */
-    bool AddToGroup(const CPVRChannelPtr &channel, int iChannelNumber = 0) override;
+    bool AddToGroup(const CPVRChannelPtr &channel, const CPVRChannelNumber &channelNumber, bool bUseBackendChannelNumbers) override;
 
     /*!
      * @see CPVRChannelGroup::RemoveFromGroup
      */
     bool RemoveFromGroup(const CPVRChannelPtr &channel) override;
-
-    /*!
-     * @see CPVRChannelGroup::MoveChannel
-     */
-    bool MoveChannel(unsigned int iOldChannelNumber, unsigned int iNewChannelNumber, bool bSaveInDb = true) override;
-
-    /*!
-     * @see CPVRChannelGroup::GetMembers
-     */
-    int GetMembers(CFileItemList &results, bool bGroupMembers = true) const override;
 
     /*!
      * @brief Check whether the group name is still correct after the language setting changed.
@@ -120,7 +99,20 @@ namespace PVR
      */
     bool UpdateGroupEntries(const CPVRChannelGroup &channels) override;
 
+    /*!
+     * @brief Add new channels to this group; updtae data.
+     * @param channels The new channels to use for this group.
+     * @param bUseBackendChannelNumbers True, if channel numbers from backends shall be used.
+     * @return True if everything went well, false otherwise.
+     */
     bool AddAndUpdateChannels(const CPVRChannelGroup &channels, bool bUseBackendChannelNumbers) override;
+
+    /*!
+     * @brief Remove deleted channels from this group.
+     * @param channels The new channels to use for this group.
+     * @return The removed channels.
+     */
+    std::vector<CPVRChannelPtr> RemoveDeletedChannels(const CPVRChannelGroup &channels) override;
 
     /*!
      * @brief Refresh the channel list from the clients.
@@ -147,6 +139,6 @@ namespace PVR
     size_t m_iHiddenChannels; /*!< the amount of hidden channels in this container */
 
   private:
-    void OnPVRManagerEvent(const PVR::PVREvent& event);
+    void OnPVRManagerEvent(const PVREvent& event);
   };
 }

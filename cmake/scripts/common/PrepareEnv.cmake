@@ -32,6 +32,53 @@ if(NOT WIN32)
   endif()
 endif()
 
+if(NOT CORE_SYSTEM_NAME)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(CORE_SYSTEM_NAME "osx")
+  else()
+    string(TOLOWER ${CMAKE_SYSTEM_NAME} CORE_SYSTEM_NAME)
+  endif()
+endif()
+
+set(PLATFORM_TAG ${CORE_SYSTEM_NAME})
+
+if(CORE_SYSTEM_NAME STREQUAL android)
+  if (CPU MATCHES "v7a")
+    set(PLATFORM_TAG ${PLATFORM_TAG}-armv7)
+  elseif (CPU MATCHES "arm64")
+    set(PLATFORM_TAG ${PLATFORM_TAG}-aarch64)
+  elseif (CPU MATCHES "i686")
+    set(PLATFORM_TAG ${PLATFORM_TAG}-i686)
+  else()
+    message(FATAL_ERROR "Unsupported architecture")
+  endif()
+elseif(CORE_SYSTEM_NAME STREQUAL ios)
+  if (CPU MATCHES armv7)
+    set(PLATFORM_TAG ${PLATFORM_TAG}-armv7)
+  elseif (CPU MATCHES arm64)
+    set(PLATFORM_TAG ${PLATFORM_TAG}-aarch64)
+  else()
+    message(FATAL_ERROR "Unsupported architecture")
+  endif()
+elseif(CORE_SYSTEM_NAME STREQUAL osx)
+  set(PLATFORM_TAG ${PLATFORM_TAG}-${CPU})
+elseif(CORE_SYSTEM_NAME STREQUAL windows)
+  include(CheckSymbolExists)
+  check_symbol_exists(_X86_ "Windows.h" _X86_)
+  check_symbol_exists(_AMD64_ "Windows.h" _AMD64_)
+
+  if(_X86_)
+    set(PLATFORM_TAG ${PLATFORM_TAG}-i686)
+  elseif(_AMD64_)
+    set(PLATFORM_TAG ${PLATFORM_TAG}-x86_64)
+  else()
+    message(FATAL_ERROR "Unsupported architecture")
+  endif()
+
+  unset(_X86_)
+  unset(_AMD64_)
+endif()
+
 # generate the proper KodiConfig.cmake file
 configure_file(${CORE_SOURCE_DIR}/cmake/KodiConfig.cmake.in ${APP_LIB_DIR}/KodiConfig.cmake @ONLY)
 
@@ -40,17 +87,11 @@ file(COPY ${CORE_SOURCE_DIR}/cmake/scripts/common/AddonHelpers.cmake
           ${CORE_SOURCE_DIR}/cmake/scripts/common/AddOptions.cmake
      DESTINATION ${APP_LIB_DIR})
 
-# copy standard add-on include files
-file(COPY ${CORE_SOURCE_DIR}/xbmc/addons/kodi-addon-dev-kit/include/kodi/
-     DESTINATION ${APP_INCLUDE_DIR} REGEX ".txt" EXCLUDE)
-
 ### copy all the addon binding header files to include/kodi
-# parse addon-bindings.mk to get the list of header files to copy
-core_file_read_filtered(bindings ${CORE_SOURCE_DIR}/xbmc/addons/addon-bindings.mk)
-foreach(header ${bindings})
-  # copy the header file to include/kodi
-  configure_file(${CORE_SOURCE_DIR}/${header} ${APP_INCLUDE_DIR} COPYONLY)
-endforeach()
+include(${CORE_SOURCE_DIR}/xbmc/addons/AddonBindings.cmake)
+file(COPY ${CORE_ADDON_BINDINGS_FILES} ${CORE_ADDON_BINDINGS_DIRS}/
+     DESTINATION ${APP_INCLUDE_DIR}
+     REGEX ".txt" EXCLUDE)
 
 ### processing additional tools required by the platform
 if(EXISTS ${CORE_SOURCE_DIR}/cmake/scripts/${CORE_SYSTEM_NAME}/tools/)

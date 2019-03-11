@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "YesNo.h"
@@ -64,9 +52,11 @@ bool Interface_GUIDialogYesNo::show_and_get_input_single_text(void* kodiBase,
 
   if (!heading || !text || !canceled || !noLabel || !yesLabel)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogYesNo::%s - invalid handler data (heading='%p', text='%p', "
-                        "canceled='%p', noLabel='%p', yesLabel='%p') on addon '%s'", __FUNCTION__,
-                            heading, text, canceled, noLabel, yesLabel, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogYesNo::%s - invalid handler data (heading='%p', text='%p', "
+              "canceled='%p', noLabel='%p', yesLabel='%p') on addon '%s'",
+              __FUNCTION__, heading, text, static_cast<void*>(canceled), noLabel, yesLabel,
+              addon->ID().c_str());
     return false;
   }
 
@@ -92,9 +82,11 @@ bool Interface_GUIDialogYesNo::show_and_get_input_line_text(void* kodiBase,
 
   if (!heading || !line0 || !line1 || !line2 || !noLabel || !yesLabel)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogYesNo::%s - invalid handler data (heading='%p', line0='%p', line1='%p', line2='%p', "
-                        "noLabel='%p', yesLabel='%p') on addon '%s'", __FUNCTION__,
-                            heading, line0, line1, line2, noLabel, yesLabel, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogYesNo::%s - invalid handler data (heading='%p', line0='%p', "
+              "line1='%p', line2='%p', "
+              "noLabel='%p', yesLabel='%p') on addon '%s'",
+              __FUNCTION__, heading, line0, line1, line2, noLabel, yesLabel, addon->ID().c_str());
     return false;
   }
 
@@ -120,9 +112,12 @@ bool Interface_GUIDialogYesNo::show_and_get_input_line_button_text(void* kodiBas
 
   if (!heading || !line0 || !line1 || !line2 || !canceled || !noLabel || !yesLabel)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogYesNo::%s - invalid handler data (heading='%p', line0='%p', line1='%p', line2='%p', "
-                        "canceled='%p', noLabel='%p', yesLabel='%p') on addon '%s'", __FUNCTION__,
-                            heading, line0, line1, line2, canceled, noLabel, yesLabel, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogYesNo::%s - invalid handler data (heading='%p', line0='%p', "
+              "line1='%p', line2='%p', "
+              "canceled='%p', noLabel='%p', yesLabel='%p') on addon '%s'",
+              __FUNCTION__, heading, line0, line1, line2, static_cast<const void*>(canceled),
+              noLabel, yesLabel, addon->ID().c_str());
     return false;
   }
 

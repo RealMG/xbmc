@@ -1,52 +1,49 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include <limits.h>
 
 #include "threads/SystemClock.h"
-#include "system.h"
 #include "SystemInfo.h"
 #ifndef TARGET_POSIX
 #include <conio.h>
 #else
 #include <sys/utsname.h>
 #endif
-#include "guiinfo/GUIInfoLabels.h"
+#include "guilib/guiinfo/GUIInfoLabels.h"
 #include "filesystem/CurlFile.h"
 #include "filesystem/File.h"
 #include "network/Network.h"
-#include "Application.h"
 #include "ServiceBroker.h"
-#include "windowing/WindowingFactory.h"
+#include "rendering/RenderSystem.h"
 #include "guilib/LocalizeStrings.h"
 #include "CPUInfo.h"
 #include "CompileInfo.h"
 #include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "platform/Filesystem.h"
+#include "utils/log.h"
 
 #ifdef TARGET_WINDOWS
 #include "dwmapi.h"
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN 1
-#endif // WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include "utils/CharsetConverter.h"
+#include <VersionHelpers.h>
+
+#ifdef TARGET_WINDOWS_STORE
+#include <winrt/Windows.Security.ExchangeActiveSyncProvisioning.h>
+#include <winrt/Windows.System.Profile.h>
+
+using namespace winrt::Windows::ApplicationModel;
+using namespace winrt::Windows::Security::ExchangeActiveSyncProvisioning;
+using namespace winrt::Windows::System;
+using namespace winrt::Windows::System::Profile;
+#endif
+#include <wincrypt.h>
 #include "platform/win32/CharsetConverter.h"
 #endif
 #if defined(TARGET_DARWIN)
@@ -76,6 +73,7 @@
 #include <sys/param.h>
 #elif defined(TARGET_LINUX)
 #include <linux/version.h>
+#include "utils/SysfsUtils.h"
 #endif
 
 #include <system_error>
@@ -86,12 +84,12 @@
 
 using namespace XFILE;
 
-#ifdef TARGET_WINDOWS
+#ifdef TARGET_WINDOWS_DESKTOP
 static bool sysGetVersionExWByRef(OSVERSIONINFOEXW& osVerInfo)
 {
   ZeroMemory(&osVerInfo, sizeof(osVerInfo));
   osVerInfo.dwOSVersionInfoSize = sizeof(osVerInfo);
-  
+
   typedef NTSTATUS(__stdcall *RtlGetVersionPtr)(RTL_OSVERSIONINFOEXW* pOsInfo);
   static HMODULE hNtDll = GetModuleHandleW(L"ntdll.dll");
   if (hNtDll != NULL)
@@ -109,7 +107,7 @@ static bool sysGetVersionExWByRef(OSVERSIONINFOEXW& osVerInfo)
   ZeroMemory(&osVerInfo, sizeof(osVerInfo));
   return false;
 }
-#endif // TARGET_WINDOWS
+#endif // TARGET_WINDOWS_DESKTOP
 
 #if defined(TARGET_LINUX) && !defined(TARGET_ANDROID)
 static std::string getValueFromOs_release(std::string key)
@@ -153,7 +151,7 @@ static std::string getValueFromOs_release(std::string key)
 
   if (content[valStart] == '\n')
     return "";
-  
+
   // find end of value string
   seachPos = valStart;
   do
@@ -286,8 +284,8 @@ CSysData::INTERNET_STATE CSysInfoJob::GetInternetState()
 
 std::string CSysInfoJob::GetMACAddress()
 {
-#if defined(HAS_LINUX_NETWORK) || defined(HAS_WIN32_NETWORK)
-  CNetworkInterface* iface = g_application.getNetwork().GetFirstConnectedInterface();
+#if defined(HAS_LINUX_NETWORK) || defined(HAS_WIN32_NETWORK) || defined(HAS_WIN10_NETWORK)
+  CNetworkInterface* iface = CServiceBroker::GetNetwork().GetFirstConnectedInterface();
   if (iface)
     return iface->GetMacAddress();
 #endif
@@ -296,12 +294,12 @@ std::string CSysInfoJob::GetMACAddress()
 
 std::string CSysInfoJob::GetVideoEncoder()
 {
-  return "GPU: " + g_Windowing.GetRenderRenderer();
+  return "GPU: " + CServiceBroker::GetRenderSystem()->GetRenderRenderer();
 }
 
 std::string CSysInfoJob::GetBatteryLevel()
 {
-  return StringUtils::Format("%d%%", g_powerManager.BatteryLevel());
+  return StringUtils::Format("%d%%", CServiceBroker::GetPowerManager().BatteryLevel());
 }
 
 double CSysInfoJob::GetCPUFrequency()
@@ -413,7 +411,7 @@ bool CSysInfo::Load(const TiXmlNode *settings)
 {
   if (settings == NULL)
     return false;
-  
+
   const TiXmlElement *pElement = settings->FirstChildElement("general");
   if (pElement)
     XMLUtils::GetInt(pElement, "systemtotaluptime", m_iSystemTimeTotalUp, 0, INT_MAX);
@@ -468,7 +466,7 @@ bool CSysInfo::GetDiskSpace(std::string drive,int& iTotal, int& iTotalFree, int&
 #endif
   }
 
-#ifdef TARGET_WINDOWS
+#ifdef TARGET_WINDOWS_DESKTOP
   using KODI::PLATFORM::WINDOWS::ToW;
   UINT uidriveType = GetDriveType(ToW(drive + ":\\").c_str());
   if (uidriveType != DRIVE_UNKNOWN && uidriveType != DRIVE_NO_ROOT_DIR)
@@ -502,6 +500,13 @@ std::string CSysInfo::GetCPUBogoMips()
   return "BogoMips: " + g_cpuInfo.getCPUBogoMips();
 }
 
+std::string CSysInfo::GetCPUSoC()
+{
+  if (!g_cpuInfo.getCPUSoC().empty())
+    return "SoC: " + g_cpuInfo.getCPUSoC();
+  return "";
+}
+
 std::string CSysInfo::GetCPUHardware()
 {
   return "Hardware: " + g_cpuInfo.getCPUHardware();
@@ -522,10 +527,14 @@ std::string CSysInfo::GetKernelName(bool emptyIfUnknown /*= false*/)
   static std::string kernelName;
   if (kernelName.empty())
   {
-#if defined(TARGET_WINDOWS)
+#if defined(TARGET_WINDOWS_DESKTOP)
     OSVERSIONINFOEXW osvi;
     if (sysGetVersionExWByRef(osvi) && osvi.dwPlatformId == VER_PLATFORM_WIN32_NT)
       kernelName = "Windows NT";
+#elif defined(TARGET_WINDOWS_STORE)
+    auto e = EasClientDeviceInformation();
+    auto os = e.OperatingSystem();
+    g_charsetConverter.wToUTF8(std::wstring(os.c_str()), kernelName);
 #elif defined(TARGET_POSIX)
     struct utsname un;
     if (uname(&un) == 0)
@@ -548,10 +557,20 @@ std::string CSysInfo::GetKernelVersionFull(void)
   if (!kernelVersionFull.empty())
     return kernelVersionFull;
 
-#if defined(TARGET_WINDOWS)
+#if defined(TARGET_WINDOWS_DESKTOP)
   OSVERSIONINFOEXW osvi;
   if (sysGetVersionExWByRef(osvi))
-    kernelVersionFull = StringUtils::Format("%d.%d", osvi.dwMajorVersion, osvi.dwMinorVersion);
+    kernelVersionFull = StringUtils::Format("%d.%d.%d", osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.dwBuildNumber);
+#elif  defined(TARGET_WINDOWS_STORE)
+  // get the system version number
+  auto sv = AnalyticsInfo::VersionInfo().DeviceFamilyVersion();
+  wchar_t* end;
+  unsigned long long  v = wcstoull(sv.c_str(), &end, 10);
+  unsigned long long v1 = (v & 0xFFFF000000000000L) >> 48;
+  unsigned long long v2 = (v & 0x0000FFFF00000000L) >> 32;
+  unsigned long long v3 = (v & 0x00000000FFFF0000L) >> 16;
+  kernelVersionFull = StringUtils::Format("%lld.%lld.%lld", v1, v2, v3);
+
 #elif defined(TARGET_POSIX)
   struct utsname un;
   if (uname(&un) == 0)
@@ -656,7 +675,7 @@ std::string CSysInfo::GetOsPrettyNameWithVersion(void)
   if (!osNameVer.empty())
     return osNameVer;
 
-#if defined (TARGET_WINDOWS)
+#if defined (TARGET_WINDOWS_DESKTOP)
   OSVERSIONINFOEXW osvi = {};
 
   osNameVer = "Windows ";
@@ -683,6 +702,7 @@ std::string CSysInfo::GetOsPrettyNameWithVersion(void)
         osNameVer.append("Server 2012 R2");
       break;
     case WindowsVersionWin10:
+    case WindowsVersionWin10_FCU:
       if (osvi.wProductType == VER_NT_WORKSTATION)
         osNameVer.append("10");
       else
@@ -708,6 +728,8 @@ std::string CSysInfo::GetOsPrettyNameWithVersion(void)
   }
   else
     osNameVer.append(" unknown");
+#elif defined(TARGET_WINDOWS_STORE)
+  osNameVer = GetKernelName() + " " + GetOsVersion();
 #elif defined(TARGET_FREEBSD) || defined(TARGET_DARWIN_IOS) || defined(TARGET_DARWIN_OSX)
   osNameVer = GetOsName() + " " + GetOsVersion();
 #elif defined(TARGET_ANDROID)
@@ -747,6 +769,24 @@ std::string CSysInfo::GetManufacturerName(void)
     manufName.assign(deviceCStr, (propLen > 0 && propLen <= PROP_VALUE_MAX) ? propLen : 0);
 #elif defined(TARGET_DARWIN)
     manufName = CDarwinUtils::GetManufacturer();
+#elif defined(TARGET_WINDOWS_STORE)
+    auto eas = EasClientDeviceInformation();
+    auto manufacturer = eas.SystemManufacturer();
+    g_charsetConverter.wToUTF8(std::wstring(manufacturer.c_str()), manufName);
+#elif defined(TARGET_LINUX)
+    if (SysfsUtils::Has("/sys/bus/soc/devices/soc0/family"))
+    {
+      std::string family;
+      SysfsUtils::GetString("/sys/bus/soc/devices/soc0/family", family);
+      if (SysfsUtils::Has("/sys/bus/soc/devices/soc0/soc_id"))
+      {
+        std::string soc_id;
+        SysfsUtils::GetString("/sys/bus/soc/devices/soc0/soc_id", soc_id);
+        manufName = family + " " + soc_id;
+      }
+      else
+        manufName = family;
+    }
 #elif defined(TARGET_WINDOWS)
     // We just don't care, might be useful on embedded
 #endif
@@ -776,6 +816,13 @@ std::string CSysInfo::GetModelName(void)
       if (sysctlbyname("hw.model", buf.get(), &nameLen, NULL, 0) == 0 && nameLen == buf.size())
         modelName.assign(buf.get(), nameLen - 1); // assign exactly 'nameLen-1' characters to 'modelName'
     }
+#elif defined(TARGET_WINDOWS_STORE)
+    auto eas = EasClientDeviceInformation();
+    auto manufacturer = eas.SystemProductName();
+    g_charsetConverter.wToUTF8(std::wstring(manufacturer.c_str()), modelName);
+#elif defined(TARGET_LINUX)
+    if (SysfsUtils::Has("/sys/bus/soc/devices/soc0/machine"))
+      SysfsUtils::GetString("/sys/bus/soc/devices/soc0/machine", modelName);
 #elif defined(TARGET_WINDOWS)
     // We just don't care, might be useful on embedded
 #endif
@@ -787,22 +834,13 @@ std::string CSysInfo::GetModelName(void)
 
 bool CSysInfo::IsAeroDisabled()
 {
-#ifdef TARGET_WINDOWS
+#ifdef TARGET_WINDOWS_STORE
+  return true; // need to review https://msdn.microsoft.com/en-us/library/windows/desktop/aa969518(v=vs.85).aspx
+#elif defined(TARGET_WINDOWS)
   BOOL aeroEnabled = FALSE;
   HRESULT res = DwmIsCompositionEnabled(&aeroEnabled);
   if (SUCCEEDED(res))
     return !aeroEnabled;
-#endif
-  return false;
-}
-
-bool CSysInfo::HasHW3DInterlaced()
-{
-#if defined(TARGET_ANDROID)
-#if defined(HAS_LIBAMCODEC)
-  if (aml_hw3d_present())
-    return true;
-#endif
 #endif
   return false;
 }
@@ -825,7 +863,7 @@ bool CSysInfo::IsWindowsVersionAtLeast(WindowsVersion ver)
 
 CSysInfo::WindowsVersion CSysInfo::GetWindowsVersion()
 {
-#ifdef TARGET_WINDOWS
+#ifdef TARGET_WINDOWS_DESKTOP
   if (m_WinVer == WindowsVersionUnknown)
   {
     OSVERSIONINFOEXW osvi = {};
@@ -835,15 +873,19 @@ CSysInfo::WindowsVersion CSysInfo::GetWindowsVersion()
         m_WinVer = WindowsVersionWin7;
       else if (osvi.dwMajorVersion == 6 && osvi.dwMinorVersion == 2)
         m_WinVer = WindowsVersionWin8;
-      else if (osvi.dwMajorVersion == 6 && osvi.dwMinorVersion == 3) 
+      else if (osvi.dwMajorVersion == 6 && osvi.dwMinorVersion == 3)
         m_WinVer = WindowsVersionWin8_1;
-      else if (osvi.dwMajorVersion == 10 && osvi.dwMinorVersion == 0)
+      else if (osvi.dwMajorVersion == 10 && osvi.dwMinorVersion == 0 && osvi.dwBuildNumber < 16299)
         m_WinVer = WindowsVersionWin10;
+      else if (osvi.dwMajorVersion == 10 && osvi.dwMinorVersion == 0 && osvi.dwBuildNumber >= 16299)
+        m_WinVer = WindowsVersionWin10_FCU;
       /* Insert checks for new Windows versions here */
       else if ( (osvi.dwMajorVersion == 6 && osvi.dwMinorVersion > 3) || osvi.dwMajorVersion > 10)
         m_WinVer = WindowsVersionFuture;
     }
   }
+#elif  defined(TARGET_WINDOWS_STORE)
+  m_WinVer = WindowsVersionWin10;
 #endif // TARGET_WINDOWS
   return m_WinVer;
 }
@@ -853,7 +895,26 @@ int CSysInfo::GetKernelBitness(void)
   static int kernelBitness = -1;
   if (kernelBitness == -1)
   {
-#ifdef TARGET_WINDOWS
+#ifdef TARGET_WINDOWS_STORE
+    Package package = Package::Current();
+    auto arch = package.Id().Architecture();
+    switch (arch)
+    {
+    case ProcessorArchitecture::X86:
+      kernelBitness = 32;
+      break;
+    case ProcessorArchitecture::X64:
+      kernelBitness = 64;
+      break;
+    case ProcessorArchitecture::Arm:
+      kernelBitness = 32;
+      break;
+    case ProcessorArchitecture::Unknown: // not sure what to do here. guess 32 for now
+    case ProcessorArchitecture::Neutral:
+      kernelBitness = 32;
+      break;
+    }
+#elif defined(TARGET_WINDOWS_DESKTOP)
     SYSTEM_INFO si;
     GetNativeSystemInfo(&si);
     if (si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_INTEL || si.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_ARM)
@@ -1004,9 +1065,9 @@ std::string CSysInfo::GetHddSpaceInfo(int& percent, int drive, bool shortText)
   else
   {
     if (shortText)
-      strRet = "N/A";
+      strRet = g_localizeStrings.Get(10006); // N/A
     else
-      strRet = g_localizeStrings.Get(161);
+      strRet = g_localizeStrings.Get(10005); // Not available
   }
   return strRet;
 }
@@ -1020,10 +1081,12 @@ std::string CSysInfo::GetUserAgent()
   result = GetAppName() + "/" + CSysInfo::GetVersionShort() + " (";
 #if defined(TARGET_WINDOWS)
   result += GetKernelName() + " " + GetKernelVersion();
+#ifndef TARGET_WINDOWS_STORE
   BOOL bIsWow = FALSE;
   if (IsWow64Process(GetCurrentProcess(), &bIsWow) && bIsWow)
       result.append("; WOW64");
   else
+#endif
   {
     SYSTEM_INFO si = {};
     GetSystemInfo(&si);
@@ -1038,7 +1101,7 @@ std::string CSysInfo::GetUserAgent()
 #if defined(TARGET_DARWIN_IOS)
   std::string iDevStr(GetModelName()); // device model name with number of model version
   size_t iDevStrDigit = iDevStr.find_first_of("0123456789");
-  std::string iDev(iDevStr, 0, iDevStrDigit);  // device model name without number 
+  std::string iDev(iDevStr, 0, iDevStrDigit);  // device model name without number
   if (iDevStrDigit == 0)
     iDev = "unknown";
   result += iDev + "; ";
@@ -1126,7 +1189,7 @@ std::string CSysInfo::GetUserAgent()
   StringUtils::Replace(iDevVer, ',', '.');
   result += " HW_" + iDev + "/" + iDevVer;
 #endif
-  // add more device IDs here if needed. 
+  // add more device IDs here if needed.
   // keep only one device ID in result! Form:
   // result += " HW_" + "deviceID" + "/" + "1.0"; // '1.0' if device has no version
 
@@ -1152,14 +1215,14 @@ std::string CSysInfo::GetUserAgent()
 
 std::string CSysInfo::GetDeviceName()
 {
-  std::string friendlyName = CServiceBroker::GetSettings().GetString(CSettings::SETTING_SERVICES_DEVICENAME);
+  std::string friendlyName = CServiceBroker::GetSettingsComponent()->GetSettings()->GetString(CSettings::SETTING_SERVICES_DEVICENAME);
   if (StringUtils::EqualsNoCase(friendlyName, CCompileInfo::GetAppName()))
   {
     std::string hostname("[unknown]");
-    g_application.getNetwork().GetHostName(hostname);
+    CServiceBroker::GetNetwork().GetHostName(hostname);
     return StringUtils::Format("%s (%s)", friendlyName.c_str(), hostname.c_str());
   }
-  
+
   return friendlyName;
 }
 
@@ -1180,7 +1243,7 @@ std::string CSysInfo::GetVersion()
 
 std::string CSysInfo::GetBuildDate()
 {
-  return StringUtils::Format("%s", __DATE__);
+  return CCompileInfo::GetBuildDate();
 }
 
 bool CSysInfo::HasVideoToolBoxDecoder()
@@ -1251,19 +1314,18 @@ std::string CSysInfo::GetBuildTargetPlatformVersionDecoded(void)
   if (__MAC_OS_X_VERSION_MIN_REQUIRED % 10)
     return StringUtils::Format("version %d.%d", (__MAC_OS_X_VERSION_MIN_REQUIRED / 100) % 100, (__MAC_OS_X_VERSION_MIN_REQUIRED / 10) % 10);
   else
-    return StringUtils::Format("version %d.%d.%d", (__MAC_OS_X_VERSION_MIN_REQUIRED / 100) % 100, 
+    return StringUtils::Format("version %d.%d.%d", (__MAC_OS_X_VERSION_MIN_REQUIRED / 100) % 100,
       (__MAC_OS_X_VERSION_MIN_REQUIRED / 10) % 10, __MAC_OS_X_VERSION_MIN_REQUIRED % 10);
 #endif // defined(MAC_OS_X_VERSION_10_10) && __MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_10
 #elif defined(TARGET_DARWIN_IOS)
-  return StringUtils::Format("version %d.%d.%d", (__IPHONE_OS_VERSION_MIN_REQUIRED / 10000) % 100, 
+  return StringUtils::Format("version %d.%d.%d", (__IPHONE_OS_VERSION_MIN_REQUIRED / 10000) % 100,
                              (__IPHONE_OS_VERSION_MIN_REQUIRED / 100) % 100, __IPHONE_OS_VERSION_MIN_REQUIRED % 100);
 #elif defined(TARGET_FREEBSD)
   // FIXME: should works well starting from FreeBSD 8.1
   static const int major = (__FreeBSD_version / 100000) % 100;
   static const int minor = (__FreeBSD_version / 1000) % 100;
   static const int Rxx = __FreeBSD_version % 1000;
-  if ((major < 9 && Rxx == 0) ||
-      __FreeBSD_version == 900044 || __FreeBSD_version == 901000)
+  if ((major < 9 && Rxx == 0))
     return StringUtils::Format("version %d.%d-RELEASE", major, minor);
   if (Rxx >= 500)
     return StringUtils::Format("version %d.%d-STABLE", major, minor);
@@ -1289,7 +1351,7 @@ std::string CSysInfo::GetBuildTargetPlatformVersionDecoded(void)
 
 std::string CSysInfo::GetBuildTargetCpuFamily(void)
 {
-#if defined(__thumb__) || defined(_M_ARMT) 
+#if defined(__thumb__) || defined(_M_ARMT)
   return "ARM (Thumb)";
 #elif defined(__arm__) || defined(_M_ARM) || defined (__aarch64__)
   return "ARM";
@@ -1349,6 +1411,26 @@ std::string CSysInfo::GetPrivacyPolicy()
       m_privacyPolicy = g_localizeStrings.Get(19055);
   }
   return m_privacyPolicy;
+}
+
+CSysInfo::WindowsDeviceFamily CSysInfo::GetWindowsDeviceFamily()
+{
+#ifdef TARGET_WINDOWS_STORE
+  auto familyName = AnalyticsInfo::VersionInfo().DeviceFamily();
+  if (familyName == L"Windows.Desktop")
+    return WindowsDeviceFamily::Desktop;
+  else if (familyName == L"Windows.Mobile")
+    return WindowsDeviceFamily::Mobile;
+  else if (familyName == L"Windows.Universal")
+    return WindowsDeviceFamily::IoT;
+  else if (familyName == L"Windows.Team")
+    return WindowsDeviceFamily::Surface;
+  else if (familyName == L"Windows.Xbox")
+    return WindowsDeviceFamily::Xbox;
+  else
+    return WindowsDeviceFamily::Other;
+#endif // TARGET_WINDOWS_STORE
+  return WindowsDeviceFamily::Desktop;
 }
 
 CJob *CSysInfo::GetJob() const

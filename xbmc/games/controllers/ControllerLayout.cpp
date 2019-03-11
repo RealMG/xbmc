@@ -1,26 +1,15 @@
 /*
- *      Copyright (C) 2015-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ControllerLayout.h"
 #include "Controller.h"
 #include "ControllerDefinitions.h"
+#include "ControllerTopology.h"
 #include "ControllerTranslator.h"
 #include "guilib/LocalizeStrings.h"
 #include "utils/log.h"
@@ -32,13 +21,29 @@
 using namespace KODI;
 using namespace GAME;
 
+CControllerLayout::CControllerLayout() :
+  m_topology(new CControllerTopology)
+{
+}
+
+CControllerLayout::CControllerLayout(const CControllerLayout &other) :
+  m_controller(other.m_controller),
+  m_labelId(other.m_labelId),
+  m_icon(other.m_icon),
+  m_strImage(other.m_strImage),
+  m_topology(new CControllerTopology(*other.m_topology))
+{
+}
+
+CControllerLayout::~CControllerLayout() = default;
+
 void CControllerLayout::Reset(void)
 {
   m_controller = nullptr;
   m_labelId = -1;
   m_icon.clear();
   m_strImage.clear();
-  m_models.clear();
+  m_topology->Reset();
 }
 
 bool CControllerLayout::IsValid(bool bLog) const
@@ -107,12 +112,6 @@ void CControllerLayout::Deserialize(const TiXmlElement* pElement, const CControl
   if (!image.empty())
     m_strImage = image;
 
-  // Models
-  std::string models = XMLUtils::GetAttribute(pElement, LAYOUT_XML_ATTR_LAYOUT_MODELS);
-  if (!models.empty())
-    m_models = models;
-
-  // Features
   for (const TiXmlElement* pChild = pElement->FirstChildElement(); pChild != nullptr; pChild = pChild->NextSiblingElement())
   {
     if (pChild->ValueStr() == LAYOUT_XML_ELM_CATEGORY)
@@ -128,6 +127,7 @@ void CControllerLayout::Deserialize(const TiXmlElement* pElement, const CControl
       if (!strCategoryLabelId.empty())
         std::istringstream(strCategoryLabelId) >> categoryLabelId;
 
+      // Features
       for (const TiXmlElement* pFeature = pChild->FirstChildElement(); pFeature != nullptr; pFeature = pFeature->NextSiblingElement())
       {
         CControllerFeature feature;
@@ -135,6 +135,13 @@ void CControllerLayout::Deserialize(const TiXmlElement* pElement, const CControl
         if (feature.Deserialize(pFeature, controller, category, categoryLabelId))
           features.push_back(feature);
       }
+    }
+    else if (pChild->ValueStr() == LAYOUT_XML_ELM_TOPOLOGY)
+    {
+      // Topology
+      CControllerTopology topology;
+      if (topology.Deserialize(pChild))
+        *m_topology = std::move(topology);
     }
     else
     {

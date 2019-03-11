@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <map>
 #include <vector>
@@ -27,6 +16,10 @@
 
 class CStreamDetails;
 class CVideoDatabase;
+class EmbeddedArt;
+
+using ArtMap = std::map<std::string, std::string>;
+using ArtCache = std::map<std::pair<MediaType, int>, ArtMap>;
 
 /*!
  \ingroup thumbs,jobs
@@ -59,7 +52,7 @@ public:
   CFileItem  m_item;
   bool       m_thumb; ///< extract thumb?
   int64_t    m_pos; ///< position to extract thumb from
-  bool m_fillStreamDetails; ///< fill in stream details? 
+  bool m_fillStreamDetails; ///< fill in stream details?
 };
 
 class CVideoThumbLoader : public CThumbLoader, public CJobQueue
@@ -126,15 +119,19 @@ public:
    */
   static void SetArt(CFileItem &item, const std::map<std::string, std::string> &artwork);
 
+  static bool GetEmbeddedThumb(const std::string& path,
+                               const std::string& type,
+                               EmbeddedArt& art);
+
 protected:
   CVideoDatabase *m_videoDatabase;
-  typedef std::map<int, std::map<std::string, std::string> > ArtCache;
-  ArtCache m_showArt;
-  ArtCache m_seasonArt;
+  ArtCache m_artCache;
 
   /*! \brief Tries to detect missing data/info from a file and adds those
    \param item The CFileItem to process
    \return void
    */
   void DetectAndAddMissingItemData(CFileItem &item);
+
+  const ArtMap& GetArtFromCache(const std::string &mediaType, const int id);
 };

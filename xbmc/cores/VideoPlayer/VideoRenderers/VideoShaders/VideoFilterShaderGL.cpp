@@ -1,36 +1,22 @@
 /*
- *      Copyright (c) 2007 d4rk
- *      Copyright (C) 2007-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (c) 2007 d4rk
+ *  Copyright (C) 2007-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-
-#include "system.h"
 
 #include <string>
 #include <math.h>
 
 #include "VideoFilterShaderGL.h"
+#include "ServiceBroker.h"
 #include "utils/log.h"
 #include "utils/GLUtils.h"
 #include "ConvolutionKernels.h"
-#include "windowing/WindowingFactory.h"
+#include "rendering/RenderSystem.h"
 
-#define USE1DTEXTURE
 #define TEXTARGET GL_TEXTURE_1D
 
 using namespace Shaders;
@@ -72,7 +58,7 @@ ConvolutionFilterShader::ConvolutionFilterShader(ESCALINGMETHOD method, bool str
   std::string shadername;
   std::string defines;
 
-  m_floattex = g_Windowing.IsExtSupported("GL_ARB_texture_float");
+  m_floattex = CServiceBroker::GetRenderSystem()->IsExtSupported("GL_ARB_texture_float");
 
   if (m_method == VS_SCALINGMETHOD_CUBIC ||
       m_method == VS_SCALINGMETHOD_LANCZOS2 ||
@@ -86,7 +72,7 @@ ConvolutionFilterShader::ConvolutionFilterShader(ESCALINGMETHOD method, bool str
     else
       m_internalformat = GL_RGBA;
   }
-  else if (m_method == VS_SCALINGMETHOD_SPLINE36 || 
+  else if (m_method == VS_SCALINGMETHOD_SPLINE36 ||
            m_method == VS_SCALINGMETHOD_LANCZOS3)
   {
     shadername = "gl_convolution-6x6.glsl";
@@ -114,13 +100,6 @@ ConvolutionFilterShader::ConvolutionFilterShader(ESCALINGMETHOD method, bool str
     defines += m_glslOutput->GetDefines();
   }
 
-  //tell shader if we're using a 1D texture
-#ifdef USE1DTEXTURE
-  defines += "#define USE1DTEXTURE 1\n";
-#else
-  defines += "#define USE1DTEXTURE 0\n";
-#endif
-
   CLog::Log(LOGDEBUG, "GL: ConvolutionFilterShader: using %s defines:\n%s", shadername.c_str(), defines.c_str());
   PixelShader()->LoadSource(shadername, defines);
   PixelShader()->AppendSource("gl_output.glsl");
@@ -128,6 +107,7 @@ ConvolutionFilterShader::ConvolutionFilterShader(ESCALINGMETHOD method, bool str
 
 ConvolutionFilterShader::~ConvolutionFilterShader()
 {
+  Free();
   delete m_glslOutput;
 }
 
@@ -184,18 +164,14 @@ void ConvolutionFilterShader::OnCompiledAndLinked()
     data   = (GLvoid*)kernel.GetUint8Pixels();
   }
 
-  //upload as 1D texture or as 2D texture with height of 1
-#ifdef USE1DTEXTURE
   glTexImage1D(TEXTARGET, 0, m_internalformat, kernel.GetSize(), 0, GL_RGBA, format, data);
-#else
-  glTexImage2D(TEXTARGET, 0, m_internalformat, kernel.GetSize(), 1, 0, GL_RGBA, format, data);
-#endif
 
   glActiveTexture(GL_TEXTURE0);
 
   VerifyGLState();
 
-  if (m_glslOutput) m_glslOutput->OnCompiledAndLinked(ProgramHandle());
+  if (m_glslOutput)
+    m_glslOutput->OnCompiledAndLinked(ProgramHandle());
 }
 
 bool ConvolutionFilterShader::OnEnabled()

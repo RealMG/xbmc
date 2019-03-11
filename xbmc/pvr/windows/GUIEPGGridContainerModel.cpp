@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2012-2016 Team Kodi
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIEPGGridContainerModel.h"
@@ -24,8 +12,8 @@
 
 #include "FileItem.h"
 #include "ServiceBroker.h"
-#include "settings/Settings.h"
 #include "utils/Variant.h"
+#include "utils/log.h"
 
 #include "pvr/PVRManager.h"
 #include "pvr/channels/PVRChannel.h"
@@ -48,28 +36,13 @@ void CGUIEPGGridContainerModel::SetInvalid()
     ruler->SetInvalid();
 }
 
-void CGUIEPGGridContainerModel::Reset()
+void CGUIEPGGridContainerModel::Initialize(const std::unique_ptr<CFileItemList> &items, const CDateTime &gridStart, const CDateTime &gridEnd, int iRulerUnit, int iBlocksPerPage, float fBlockSize)
 {
-  for (auto &channel : m_gridIndex)
+  if (!m_channelItems.empty())
   {
-    for (const auto &block : channel)
-    {
-      if (block.item)
-        block.item->ClearProperties();
-    }
-    channel.clear();
+    CLog::LogF(LOGERROR, "Already initialized!");
+    return;
   }
-  m_gridIndex.clear();
-
-  m_channelItems.clear();
-  m_programmeItems.clear();
-  m_rulerItems.clear();
-  m_epgItemsPtr.clear();
-}
-
-void CGUIEPGGridContainerModel::Refresh(const std::unique_ptr<CFileItemList> &items, const CDateTime &gridStart, const CDateTime &gridEnd, int iRulerUnit, int iBlocksPerPage, float fBlockSize)
-{
-  Reset();
 
   ////////////////////////////////////////////////////////////////////////
   // Create programme & channel items
@@ -230,9 +203,8 @@ void CGUIEPGGridContainerModel::Refresh(const std::unique_ptr<CFileItemList> &it
         }
         else
         {
-          CPVREpgInfoTagPtr gapTag(CPVREpgInfoTag::CreateDefaultTag());
-          gapTag->SetChannel(m_channelItems[channel]->GetPVRChannelInfoTag());
-          CFileItemPtr gapItem(new CFileItem(gapTag));
+          const CPVREpgInfoTagPtr gapTag(new CPVREpgInfoTag(m_channelItems[channel]->GetPVRChannelInfoTag()));
+          const CFileItemPtr gapItem(new CFileItem(gapTag));
           for (int i = block + blockDelta; i >= block - itemSize + sizeDelta; --i)
           {
             m_gridIndex[channel][i].item = gapItem;
@@ -255,9 +227,8 @@ void CGUIEPGGridContainerModel::Refresh(const std::unique_ptr<CFileItemList> &it
           }
           else
           {
-            CPVREpgInfoTagPtr gapTag(CPVREpgInfoTag::CreateDefaultTag());
-            gapTag->SetChannel(m_channelItems[channel]->GetPVRChannelInfoTag());
-            CFileItemPtr gapItem(new CFileItem(gapTag));
+            const CPVREpgInfoTagPtr gapTag(new CPVREpgInfoTag(m_channelItems[channel]->GetPVRChannelInfoTag()));
+            const CFileItemPtr gapItem(new CFileItem(gapTag));
             m_gridIndex[channel][block].item = gapItem;
           }
 
@@ -432,6 +403,16 @@ unsigned int CGUIEPGGridContainerModel::GetPageNowOffset() const
   return GetGridStartPadding() / MINSPERBLOCK; // this is the 'now' block relative to page start
 }
 
+CDateTime CGUIEPGGridContainerModel::GetStartTimeForBlock(int block) const
+{
+  if (block < 0)
+    block = 0;
+  else if (block >= m_blocks)
+    block = m_blocks - 1;
+
+  return m_gridStart + CDateTimeSpan(0, 0 , block * MINSPERBLOCK, 0);
+}
+
 int CGUIEPGGridContainerModel::GetBlock(const CDateTime &datetime) const
 {
   int diff;
@@ -451,7 +432,7 @@ int CGUIEPGGridContainerModel::GetNowBlock() const
   return GetBlock(CDateTime::GetUTCDateTime()) - GetPageNowOffset();
 }
 
-int CGUIEPGGridContainerModel::GetFirstEventBlock(const CPVREpgInfoTagPtr event) const
+int CGUIEPGGridContainerModel::GetFirstEventBlock(const CPVREpgInfoTagPtr &event) const
 {
   const CDateTime eventStart = event->StartAsUTC();
   int diff;
@@ -469,7 +450,7 @@ int CGUIEPGGridContainerModel::GetFirstEventBlock(const CPVREpgInfoTagPtr event)
   return std::ceil(fBlockIndex);
 }
 
-int CGUIEPGGridContainerModel::GetLastEventBlock(const CPVREpgInfoTagPtr event) const
+int CGUIEPGGridContainerModel::GetLastEventBlock(const CPVREpgInfoTagPtr &event) const
 {
   // Last block of a tag is always the block calculated using event's end time, not rounded up.
   // Refer to CGUIEPGGridContainerModel::Refresh, where the model is created, for details!

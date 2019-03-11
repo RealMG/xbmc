@@ -2,34 +2,39 @@
 # -----------
 # Finds the libxkbcommon library
 #
-# This will will define the following variables::
+# This will define the following variables::
 #
 # XKBCOMMON_FOUND        - the system has libxkbcommon
 # XKBCOMMON_INCLUDE_DIRS - the libxkbcommon include directory
 # XKBCOMMON_LIBRARIES    - the libxkbcommon libraries
-# XKBCOMMON_DEFINITIONS  - the libxkbcommon definitions
-
 
 if(PKG_CONFIG_FOUND)
-  pkg_check_modules (PC_XKBCOMMON xkbcommon QUIET)
+  pkg_check_modules(PC_XKBCOMMON xkbcommon QUIET)
 endif()
+
 
 find_path(XKBCOMMON_INCLUDE_DIR NAMES xkbcommon/xkbcommon.h
-                                PATHS ${PC_XKBCOMMON_INCLUDE_DIRS})
-
+                           PATHS ${PC_XKBCOMMON_INCLUDEDIR})
 find_library(XKBCOMMON_LIBRARY NAMES xkbcommon
-                               PATHS ${PC_XKBCOMMON_LIBRARIES} ${PC_XKBCOMMON_LIBRARY_DIRS})
+                          PATHS ${PC_XKBCOMMON_LIBDIR})
 
-include (FindPackageHandleStandardArgs)
-find_package_handle_standard_args (XKBCOMMON
-  REQUIRED_VARS
-  XKBCOMMON_INCLUDE_DIR
-  XKBCOMMON_LIBRARY)
+set(XKBCOMMON_VERSION ${PC_XKBCOMMON_VERSION})
 
-if (XKBCOMMON_FOUND)
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(Xkbcommon
+                                  REQUIRED_VARS XKBCOMMON_LIBRARY XKBCOMMON_INCLUDE_DIR
+                                  VERSION_VAR XKBCOMMON_VERSION)
+
+if(XKBCOMMON_FOUND)
+  set(XKBCOMMON_INCLUDE_DIRS ${XKBCOMMON_INCLUDE_DIR})
   set(XKBCOMMON_LIBRARIES ${XKBCOMMON_LIBRARY})
-  set(XKBCOMMON_INCLUDE_DIRS ${PC_XKBCOMMON_INCLUDE_DIRS})
-  set(XKBCOMMON_DEFINITIONS -DHAVE_XKBCOMMON=1)
+
+  if(NOT TARGET XKBCOMMON::XKBCOMMON)
+    add_library(XKBCOMMON::XKBCOMMON UNKNOWN IMPORTED)
+    set_target_properties(XKBCOMMON::XKBCOMMON PROPERTIES
+                                     IMPORTED_LOCATION "${XKBCOMMON_LIBRARY}"
+                                     INTERFACE_INCLUDE_DIRECTORIES "${XKBCOMMON_INCLUDE_DIR}")
+  endif()
 endif()
 
-mark_as_advanced (XKBCOMMON_LIBRARY XKBCOMMON_INCLUDE_DIR)
+mark_as_advanced(XKBCOMMON_INCLUDE_DIR XKBCOMMON_LIBRARY)

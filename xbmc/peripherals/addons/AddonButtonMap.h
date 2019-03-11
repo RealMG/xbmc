@@ -1,28 +1,17 @@
 /*
- *      Copyright (C) 2014-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include "PeripheralAddon.h" // for FeatureMap
 #include "addons/kodi-addon-dev-kit/include/kodi/addon-instance/PeripheralUtils.h"
+#include "input/joysticks/interfaces/IButtonMap.h"
 #include "input/joysticks/DriverPrimitive.h"
-#include "input/joysticks/IButtonMap.h"
 #include "input/joysticks/JoystickTypes.h"
 #include "peripherals/PeripheralTypes.h"
 #include "threads/CriticalSection.h"
@@ -82,13 +71,13 @@ namespace PERIPHERALS
 
     bool GetRelativePointer(
       const KODI::JOYSTICK::FeatureName& feature,
-      KODI::JOYSTICK::ANALOG_STICK_DIRECTION direction,
+      KODI::JOYSTICK::RELATIVE_POINTER_DIRECTION direction,
       KODI::JOYSTICK::CDriverPrimitive& primitive
     ) override;
 
     void AddRelativePointer(
       const KODI::JOYSTICK::FeatureName& feature,
-      KODI::JOYSTICK::ANALOG_STICK_DIRECTION direction,
+      KODI::JOYSTICK::RELATIVE_POINTER_DIRECTION direction,
       const KODI::JOYSTICK::CDriverPrimitive& primitive
     ) override;
 
@@ -104,6 +93,40 @@ namespace PERIPHERALS
       const KODI::JOYSTICK::CDriverPrimitive& positiveX,
       const KODI::JOYSTICK::CDriverPrimitive& positiveY,
       const KODI::JOYSTICK::CDriverPrimitive& positiveZ
+    ) override;
+
+    bool GetWheel(
+      const KODI::JOYSTICK::FeatureName& feature,
+      KODI::JOYSTICK::WHEEL_DIRECTION direction,
+      KODI::JOYSTICK::CDriverPrimitive& primitive
+    ) override;
+
+    void AddWheel(
+      const KODI::JOYSTICK::FeatureName& feature,
+      KODI::JOYSTICK::WHEEL_DIRECTION direction,
+      const KODI::JOYSTICK::CDriverPrimitive& primitive
+    ) override;
+
+    bool GetThrottle(
+      const KODI::JOYSTICK::FeatureName& feature,
+      KODI::JOYSTICK::THROTTLE_DIRECTION direction,
+      KODI::JOYSTICK::CDriverPrimitive& primitive
+    ) override;
+
+    void AddThrottle(
+      const KODI::JOYSTICK::FeatureName& feature,
+      KODI::JOYSTICK::THROTTLE_DIRECTION direction,
+      const KODI::JOYSTICK::CDriverPrimitive& primitive
+    ) override;
+
+    bool GetKey(
+      const KODI::JOYSTICK::FeatureName& feature,
+      KODI::JOYSTICK::CDriverPrimitive& primitive
+    ) override;
+
+    void AddKey(
+      const KODI::JOYSTICK::FeatureName& feature,
+      const KODI::JOYSTICK::CDriverPrimitive& primitive
     ) override;
 
     void SetIgnoredPrimitives(const std::vector<KODI::JOYSTICK::CDriverPrimitive>& primitives) override;
@@ -123,7 +146,10 @@ namespace PERIPHERALS
     // Utility functions
     static DriverMap CreateLookupTable(const FeatureMap& features);
 
-    static JOYSTICK_FEATURE_PRIMITIVE GetPrimitiveIndex(KODI::JOYSTICK::ANALOG_STICK_DIRECTION dir);
+    static JOYSTICK_FEATURE_PRIMITIVE GetAnalogStickIndex(KODI::JOYSTICK::ANALOG_STICK_DIRECTION dir);
+    static JOYSTICK_FEATURE_PRIMITIVE GetRelativePointerIndex(KODI::JOYSTICK::RELATIVE_POINTER_DIRECTION dir);
+    static JOYSTICK_FEATURE_PRIMITIVE GetPrimitiveIndex(KODI::JOYSTICK::WHEEL_DIRECTION dir);
+    static JOYSTICK_FEATURE_PRIMITIVE GetPrimitiveIndex(KODI::JOYSTICK::THROTTLE_DIRECTION dir);
 
     CPeripheral* const  m_device;
     std::weak_ptr<CPeripheralAddon>  m_addon;
@@ -131,6 +157,6 @@ namespace PERIPHERALS
     FeatureMap          m_features;
     DriverMap           m_driverMap;
     JoystickPrimitiveVector m_ignoredPrimitives;
-    CCriticalSection    m_mutex;
+    mutable CCriticalSection m_mutex;
   };
 }

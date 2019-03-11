@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "IDirectory.h"
@@ -29,7 +17,19 @@
 using namespace KODI::MESSAGING;
 using namespace XFILE;
 
-IDirectory::IDirectory(void)
+const CProfileManager *IDirectory::m_profileManager = nullptr;
+
+void IDirectory::RegisterProfileManager(const CProfileManager &profileManager)
+{
+  m_profileManager = &profileManager;
+}
+
+void IDirectory::UnregisterProfileManager()
+{
+  m_profileManager = nullptr;
+}
+
+IDirectory::IDirectory()
 {
   m_flags = DIR_FLAG_DEFAULTS;
 }
@@ -59,35 +59,31 @@ bool IDirectory::IsAllowed(const CURL& url) const
     std::string fileName = URIUtils::GetFileName(url);
 
     // Allow filenames of the form video_ts.ifo or vts_##_0.ifo
-    
+
     return StringUtils::EqualsNoCase(fileName, "video_ts.ifo") ||
           (fileName.length() == 12 &&
            StringUtils::StartsWithNoCase(fileName, "vts_") &&
            StringUtils::EndsWithNoCase(fileName, "_0.ifo"));
   }
-  
+
   if (URIUtils::HasExtension(url, ".dat"))
   {
     std::string fileName = URIUtils::GetFileName(url);
     std::string folder = URIUtils::GetDirectory(fileName);
     URIUtils::RemoveSlashAtEnd(folder);
     folder = URIUtils::GetFileName(folder);
-    if (folder.size() <= 3) // cannot be a vcd variant
-      return true;
-
-    if (!StringUtils::CompareNoCase(folder, "vcd") &&
-        !StringUtils::CompareNoCase(folder, "MPEGAV") &&
-        !StringUtils::CompareNoCase(folder, "CDDA"))
-      return true;
-
-    // Allow filenames of the form AVSEQ##(#).DAT, ITEM###(#).DAT
-    // and MUSIC##(#).DAT
-    return (fileName.length() == 11 || fileName.length() == 12) &&
-           (StringUtils::StartsWithNoCase(fileName, "AVSEQ") ||
-            StringUtils::StartsWithNoCase(fileName, "MUSIC") ||
-            StringUtils::StartsWithNoCase(fileName, "ITEM"));
+    if (StringUtils::EqualsNoCase(folder, "vcd") ||
+        StringUtils::EqualsNoCase(folder, "mpegav") ||
+        StringUtils::EqualsNoCase(folder, "cdda"))
+    {
+      // Allow filenames of the form AVSEQ##(#).DAT, ITEM###(#).DAT
+      // and MUSIC##(#).DAT
+      return (fileName.length() == 11 || fileName.length() == 12) &&
+             (StringUtils::StartsWithNoCase(fileName, "AVSEQ") ||
+              StringUtils::StartsWithNoCase(fileName, "MUSIC") ||
+              StringUtils::StartsWithNoCase(fileName, "ITEM"));
+    }
   }
-
   return true;
 }
 

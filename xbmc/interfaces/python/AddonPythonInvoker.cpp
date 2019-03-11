@@ -1,28 +1,15 @@
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 // python.h should always be included first before any other includes
 #include <Python.h>
 #include <osdefs.h>
 
-#include "system.h"
 #include "AddonPythonInvoker.h"
 
 #include <utility>
@@ -61,7 +48,7 @@
   ""
 
 #define RUNSCRIPT_POSTSCRIPT \
-        "print '-->Python Interpreter Initialized<--'\n" \
+        "print('-->Python Interpreter Initialized<--')\n" \
         ""
 
 #if defined(TARGET_ANDROID)
@@ -77,6 +64,7 @@
 #endif
 
 namespace PythonBindings {
+  void initModule_xbmcdrm(void);
   void initModule_xbmcgui(void);
   void initModule_xbmc(void);
   void initModule_xbmcplugin(void);
@@ -94,14 +82,13 @@ typedef struct
 
 static PythonModule PythonModules[] =
   {
+    { "xbmcdrm",    initModule_xbmcdrm    },
     { "xbmcgui",    initModule_xbmcgui    },
     { "xbmc",       initModule_xbmc       },
     { "xbmcplugin", initModule_xbmcplugin },
     { "xbmcaddon",  initModule_xbmcaddon  },
     { "xbmcvfs",    initModule_xbmcvfs    }
   };
-
-#define PythonModulesSize sizeof(PythonModules) / sizeof(PythonModule)
 
 CAddonPythonInvoker::CAddonPythonInvoker(ILanguageInvocationHandler *invocationHandler)
   : CPythonInvoker(invocationHandler)
@@ -114,8 +101,8 @@ std::map<std::string, CPythonInvoker::PythonModuleInitialization> CAddonPythonIn
   static std::map<std::string, PythonModuleInitialization> modules;
   if (modules.empty())
   {
-    for (size_t i = 0; i < PythonModulesSize; i++)
-      modules.insert(std::make_pair(PythonModules[i].name, PythonModules[i].initialization));
+    for (const PythonModule& pythonModule : PythonModules)
+      modules.insert(std::make_pair(pythonModule.name, pythonModule.initialization));
   }
 
   return modules;

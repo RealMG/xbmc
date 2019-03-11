@@ -1,40 +1,27 @@
 /*
- *      Copyright (C) 2014-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PeripheralJoystick.h"
+#include "games/controllers/ControllerIDs.h"
+#include "input/joysticks/interfaces/IDriverHandler.h"
 #include "input/joysticks/keymaps/KeymapHandling.h"
 #include "input/joysticks/DeadzoneFilter.h"
-#include "input/joysticks/IDriverHandler.h"
-#include "input/joysticks/JoystickIDs.h"
 #include "input/joysticks/JoystickMonitor.h"
 #include "input/joysticks/JoystickTranslator.h"
 #include "input/joysticks/RumbleGenerator.h"
 #include "input/InputManager.h"
 #include "peripherals/Peripherals.h"
 #include "peripherals/addons/AddonButtonMap.h"
-#include "peripherals/bus/android/PeripheralBusAndroid.h"
+#include "platform/android/peripherals/PeripheralBusAndroid.h"
 #include "peripherals/bus/virtual/PeripheralBusAddon.h"
 #include "threads/SingleLock.h"
 #include "utils/log.h"
 #include "Application.h"
-#include "ServiceBroker.h"
 
 #include <algorithm>
 
@@ -58,10 +45,18 @@ CPeripheralJoystick::CPeripheralJoystick(CPeripherals& manager, const Peripheral
 
 CPeripheralJoystick::~CPeripheralJoystick(void)
 {
-  m_rumbleGenerator->AbortRumble();
-  UnregisterInputHandler(m_joystickMonitor.get());
-  m_joystickMonitor.reset();
-  m_rumbleGenerator->AbortRumble();
+  if (m_rumbleGenerator)
+  {
+    m_rumbleGenerator->AbortRumble();
+    m_rumbleGenerator.reset();
+  }
+
+  if (m_joystickMonitor)
+  {
+    UnregisterInputHandler(m_joystickMonitor.get());
+    m_joystickMonitor.reset();
+  }
+
   m_appInput.reset();
   m_deadzoneFilter.reset();
   m_buttonMap.reset();
@@ -75,17 +70,25 @@ bool CPeripheralJoystick::InitialiseFeature(const PeripheralFeature feature)
   {
     if (feature == FEATURE_JOYSTICK)
     {
-      if (m_bus->InitializeProperties(*this))
-        bSuccess = true;
+      // Ensure an add-on is present to translate input
+      if (!m_manager.GetAddonWithButtonMap(this))
+      {
+        CLog::Log(LOGERROR, "CPeripheralJoystick: No button mapping add-on for %s", m_strLocation.c_str());
+      }
       else
-        CLog::Log(LOGERROR, "CPeripheralJoystick: Invalid location (%s)", m_strLocation.c_str());
+      {
+        if (m_bus->InitializeProperties(*this))
+          bSuccess = true;
+        else
+          CLog::Log(LOGERROR, "CPeripheralJoystick: Invalid location (%s)", m_strLocation.c_str());
+      }
 
       if (bSuccess)
       {
         InitializeDeadzoneFiltering();
 
         // Give joystick monitor priority over default controller
-        m_appInput.reset(new CKeymapHandling(this, false, CServiceBroker::GetInputManager().KeymapEnvironment()));
+        m_appInput.reset(new CKeymapHandling(this, false, m_manager.GetInputManager().KeymapEnvironment()));
         m_joystickMonitor.reset(new CJoystickMonitor);
         RegisterInputHandler(m_joystickMonitor.get(), false);
       }
@@ -196,6 +199,8 @@ bool CPeripheralJoystick::OnButtonMotion(unsigned int buttonIndex, bool bPressed
   if (bPressed && !g_application.IsAppFocused())
     return false;
 
+  m_lastActive = CDateTime::GetCurrentDateTime();
+
   CSingleLock lock(m_handlerMutex);
 
   // Process promiscuous handlers
@@ -234,8 +239,10 @@ bool CPeripheralJoystick::OnHatMotion(unsigned int hatIndex, HAT_STATE state)
             DeviceName().c_str(), CJoystickTranslator::HatStateToString(state));
 
   // Avoid sending activated input if the app is in the background
-  if (state != HAT_STATE::UNPRESSED && !g_application.IsAppFocused())
+  if (state != HAT_STATE::NONE && !g_application.IsAppFocused())
     return false;
+
+  m_lastActive = CDateTime::GetCurrentDateTime();
 
   CSingleLock lock(m_handlerMutex);
 
@@ -257,7 +264,7 @@ bool CPeripheralJoystick::OnHatMotion(unsigned int hatIndex, HAT_STATE state)
 
       // If hat is centered, force bHandled to false to notify all handlers.
       // This avoids "sticking".
-      if (state == HAT_STATE::UNPRESSED)
+      if (state == HAT_STATE::NONE)
         bHandled = false;
 
       // Once a hat is handled, we're done
@@ -313,6 +320,9 @@ bool CPeripheralJoystick::OnAxisMotion(unsigned int axisIndex, float position)
         break;
     }
   }
+
+  if (bHandled)
+    m_lastActive = CDateTime::GetCurrentDateTime();
 
   return bHandled;
 }

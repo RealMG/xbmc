@@ -1,20 +1,8 @@
 /*
- *      Copyright (C) 2013 Arne Morten Kvarving
+ *  Copyright (C) 2013 Arne Morten Kvarving
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "VFSEntry.h"
@@ -22,6 +10,7 @@
 #include "addons/binary-addons/BinaryAddonBase.h"
 #include "addons/binary-addons/BinaryAddonManager.h"
 #include "ServiceBroker.h"
+#include "network/ZeroconfBrowser.h"
 #include "utils/log.h"
 #include "utils/StringUtils.h"
 
@@ -36,13 +25,11 @@ CVFSAddonCache::~CVFSAddonCache()
 void CVFSAddonCache::Init()
 {
   CServiceBroker::GetAddonMgr().Events().Subscribe(this, &CVFSAddonCache::OnEvent);
-  CServiceBroker::GetAddonMgr().UnloadEvents().Subscribe(this, &CVFSAddonCache::OnEvent);
   Update();
 }
 
 void CVFSAddonCache::Deinit()
 {
-  CServiceBroker::GetAddonMgr().UnloadEvents().Unsubscribe(this);
   CServiceBroker::GetAddonMgr().Events().Unsubscribe(this);
 }
 
@@ -72,15 +59,25 @@ VFSEntryPtr CVFSAddonCache::GetAddonInstance(const std::string& strId)
 
 void CVFSAddonCache::OnEvent(const AddonEvent& event)
 {
-  if (typeid(event) == typeid(AddonEvents::Disabled) ||
-      typeid(event) == typeid(AddonEvents::Unload) ||
-      typeid(event) == typeid(AddonEvents::Enabled) ||
-      typeid(event) == typeid(AddonEvents::Load))
+  if (typeid(event) == typeid(AddonEvents::Disabled))
+  {
+    for (const auto& vfs : m_addonsInstances)
+    {
+      if (vfs->ID() == event.id && !vfs->GetZeroconfType().empty())
+        CZeroconfBrowser::GetInstance()->RemoveServiceType(vfs->GetZeroconfType());
+    }
+  }
+
+  if (typeid(event) == typeid(AddonEvents::Enabled) ||
+      typeid(event) == typeid(AddonEvents::Disabled) ||
+      typeid(event) == typeid(AddonEvents::ReInstalled))
   {
     if (CServiceBroker::GetAddonMgr().HasType(event.id, ADDON_VFS))
-    {
       Update();
-    }
+  }
+  else if (typeid(event) == typeid(AddonEvents::UnInstalled))
+  {
+    Update();
   }
 }
 
@@ -94,6 +91,8 @@ void CVFSAddonCache::Update()
   {
     VFSEntryPtr vfs = std::make_shared<CVFSEntry>(addonInfo);
     addonmap.push_back(vfs);
+    if (!vfs->GetZeroconfType().empty())
+      CZeroconfBrowser::GetInstance()->AddServiceType(vfs->GetZeroconfType());
   }
 
   {
@@ -134,15 +133,32 @@ class CVFSURLWrapper
     std::vector<std::string> m_strings;
 };
 
+CVFSEntry::ProtocolInfo::ProtocolInfo(BinaryAddonBasePtr addonInfo)
+  : supportPath(addonInfo->Type(ADDON_VFS)->GetValue("@supportPath").asBoolean()),
+    supportUsername(addonInfo->Type(ADDON_VFS)->GetValue("@supportUsername").asBoolean()),
+    supportPassword(addonInfo->Type(ADDON_VFS)->GetValue("@supportPassword").asBoolean()),
+    supportPort(addonInfo->Type(ADDON_VFS)->GetValue("@supportPort").asBoolean()),
+    supportBrowsing(addonInfo->Type(ADDON_VFS)->GetValue("@supportBrowsing").asBoolean()),
+    supportWrite(addonInfo->Type(ADDON_VFS)->GetValue("@supportWrite").asBoolean()),
+    defaultPort(addonInfo->Type(ADDON_VFS)->GetValue("@defaultPort").asInteger()),
+    type(addonInfo->Type(ADDON_VFS)->GetValue("@protocols").asString()),
+    label(addonInfo->Type(ADDON_VFS)->GetValue("@label").asInteger())
+{
+}
+
 CVFSEntry::CVFSEntry(BinaryAddonBasePtr addonInfo)
   : IAddonInstanceHandler(ADDON_INSTANCE_VFS, addonInfo),
     m_protocols(addonInfo->Type(ADDON_VFS)->GetValue("@protocols").asString()),
     m_extensions(addonInfo->Type(ADDON_VFS)->GetValue("@extensions").asString()),
+    m_zeroconf(addonInfo->Type(ADDON_VFS)->GetValue("@zeroconf").asString()),
     m_files(addonInfo->Type(ADDON_VFS)->GetValue("@files").asBoolean()),
     m_directories(addonInfo->Type(ADDON_VFS)->GetValue("@directories").asBoolean()),
-    m_filedirectories(addonInfo->Type(ADDON_VFS)->GetValue("@filedirectories").asBoolean())
-
+    m_filedirectories(addonInfo->Type(ADDON_VFS)->GetValue("@filedirectories").asBoolean()),
+    m_protocolInfo(addonInfo)
 {
+  if (!addonInfo->Type(ADDON_VFS)->GetValue("@supportDialog").asBoolean())
+    m_protocolInfo.type.clear();
+
   m_struct = {{ 0 }};
   m_struct.toKodi.kodiInstance = this;
   if (CreateInstance(&m_struct) != ADDON_STATUS_OK)

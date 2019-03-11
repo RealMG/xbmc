@@ -1,23 +1,14 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include <memory>
 
 #include "utils/Observer.h"
 #include "windows/GUIMediaWindow.h"
@@ -32,6 +23,7 @@
 #define CONTROL_BTNSHOWDELETED            7
 #define CONTROL_BTNHIDEDISABLEDTIMERS     8
 #define CONTROL_BTNSHOWMODE               10
+#define CONTROL_LSTCHANNELGROUPS          11
 
 #define CONTROL_BTNCHANNELGROUPS          28
 #define CONTROL_BTNFILTERCHANNELS         31
@@ -53,6 +45,8 @@ namespace PVR
     EPG_SELECT_ACTION_SMART_SELECT   = 5
   };
 
+  class CGUIPVRChannelGroupsSelector;
+
   class CGUIWindowPVRBase : public CGUIMediaWindow, public Observer
   {
   public:
@@ -68,9 +62,6 @@ namespace PVR
     void Notify(const Observable &obs, const ObservableMessage msg) override;
     void SetInvalid() override;
     bool CanBeActivated() const override;
-
-    static std::string GetSelectedItemPath(bool bRadio);
-    static void SetSelectedItemPath(bool bRadio, const std::string &path);
 
     /*!
      * @brief Refresh window content.
@@ -95,22 +86,19 @@ namespace PVR
      * @brief Get the channel group for this window.
      * @return the group or null, if no group set.
      */
-   virtual CPVRChannelGroupPtr GetChannelGroup(void);
+   CPVRChannelGroupPtr GetChannelGroup(void);
 
     /*!
      * @brief Set a new channel group, start listening to this group, optionally update window content.
      * @param group The new group.
      * @param bUpdate if true, window content will be updated.
      */
-    void SetChannelGroup(const CPVRChannelGroupPtr &group, bool bUpdate = true);
+    void SetChannelGroup(CPVRChannelGroupPtr &&group, bool bUpdate = true);
 
     virtual void UpdateSelectedItemPath();
 
     void RegisterObservers(void);
     void UnregisterObservers(void);
-
-    static CCriticalSection m_selectedItemPathsLock;
-    static std::string m_selectedItemPaths[2];
 
     CCriticalSection m_critSection;
     bool m_bRadio;
@@ -130,6 +118,7 @@ namespace PVR
      */
     void HideProgressDialog(void);
 
+    std::unique_ptr<CGUIPVRChannelGroupsSelector> m_channelGroupsSelector;
     CPVRChannelGroupPtr m_channelGroup;
     XbmcThreads::EndTime m_refreshTimeout;
     CGUIDialogProgressBarHandle *m_progressHandle; /*!< progress dialog that is displayed while the pvr manager is loading */

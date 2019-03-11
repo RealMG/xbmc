@@ -1,25 +1,12 @@
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #if defined(TARGET_WINDOWS)
-#include "system.h"
 #endif
 
 #include <interface/mmal/util/mmal_util.h>
@@ -31,24 +18,25 @@
 #include "ServiceBroker.h"
 #include "DVDClock.h"
 #include "DVDStreamInfo.h"
-#include "windowing/WindowingFactory.h"
 #include "cores/VideoPlayer/DVDCodecs/DVDCodecs.h"
 #include "cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.h"
 #include "DVDVideoCodec.h"
 #include "utils/log.h"
 #include "utils/TimeUtils.h"
-#include "settings/Settings.h"
 #include "settings/MediaSettings.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "messaging/ApplicationMessenger.h"
 #include "Application.h"
 #include "guilib/GUIWindowManager.h"
 #include "cores/VideoPlayer/VideoRenderers/RenderFlags.h"
-#include "settings/DisplaySettings.h"
-#include "cores/VideoPlayer/VideoRenderers/RenderManager.h"
 #include "settings/AdvancedSettings.h"
+#include "settings/DisplaySettings.h"
+#include "settings/SettingsComponent.h"
+#include "cores/VideoPlayer/VideoRenderers/RenderManager.h"
 #include "cores/VideoPlayer/Interface/Addon/TimingConstants.h"
 
-#include "linux/RBP.h"
+#include "platform/linux/RBP.h"
 
 using namespace KODI::MESSAGING;
 using namespace MMAL;
@@ -70,7 +58,7 @@ CMMALVideoBuffer::~CMMALVideoBuffer()
 
 CMMALVideo::CMMALVideo(CProcessInfo &processInfo) : CDVDVideoCodec(processInfo)
 {
-  CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s %p", CLASSNAME, __func__, this);
+  CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s %p", CLASSNAME, __func__, static_cast<void*>(this));
 
   m_decoded_width = 0;
   m_decoded_height = 0;
@@ -105,7 +93,7 @@ CMMALVideo::CMMALVideo(CProcessInfo &processInfo) : CDVDVideoCodec(processInfo)
 
 CMMALVideo::~CMMALVideo()
 {
-  CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s %p", CLASSNAME, __func__, this);
+  CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s %p", CLASSNAME, __func__, static_cast<void*>(this));
   if (!m_finished)
     Dispose();
 
@@ -185,7 +173,8 @@ static void dec_control_port_cb_static(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *
 
 void CMMALVideo::dec_input_port_cb(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer)
 {
-  CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s port:%p buffer %p, len %d cmd:%x", CLASSNAME, __func__, port, buffer, buffer->length, buffer->cmd);
+  CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s port:%p buffer %p, len %d cmd:%x", CLASSNAME, __func__,
+            static_cast<void*>(port), static_cast<void*>(buffer), buffer->length, buffer->cmd);
   mmal_buffer_header_release(buffer);
   CSingleLock output_lock(m_output_mutex);
   m_output_cond.notifyAll();
@@ -201,7 +190,11 @@ static void dec_input_port_cb_static(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *bu
 void CMMALVideo::dec_output_port_cb(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buffer)
 {
   if (!(buffer->cmd == 0 && buffer->length > 0))
-    CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s port:%p buffer %p, len %d cmd:%x flags:%x", CLASSNAME, __func__, port, buffer, buffer->length, buffer->cmd, buffer->flags);
+    {
+      CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s port:%p buffer %p, len %d cmd:%x flags:%x", CLASSNAME,
+                __func__, static_cast<void*>(port), static_cast<void*>(buffer), buffer->length,
+                buffer->cmd, buffer->flags);
+    }
 
   bool kept = false;
   CMMALVideoBuffer *omvb = (CMMALVideoBuffer *)buffer->user_data;
@@ -221,15 +214,20 @@ void CMMALVideo::dec_output_port_cb(MMAL_PORT_T *port, MMAL_BUFFER_HEADER_T *buf
       assert(omvb->mmal_buffer == buffer);
       bool wanted = true;
       // we don't keep up when running at 60fps in the background so switch to half rate
-      if (m_fps > 40.0f && !g_graphicsContext.IsFullScreenVideo() && !(m_num_decoded & 1))
+      if (m_fps > 40.0f && !CServiceBroker::GetWinSystem()->GetGfxContext().IsFullScreenVideo() && !(m_num_decoded & 1))
         wanted = false;
-      if (g_advancedSettings.m_omxDecodeStartWithValidFrame && (buffer->flags & MMAL_BUFFER_HEADER_FLAG_CORRUPTED))
+      if (CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_omxDecodeStartWithValidFrame && (buffer->flags & MMAL_BUFFER_HEADER_FLAG_CORRUPTED))
         wanted = false;
       m_num_decoded++;
-      CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s - omvb:%p mmal:%p len:%u dts:%.3f pts:%.3f flags:%x:%x pool:%p %dx%d (%dx%d) %dx%d (%dx%d) enc:%.4s",
-          CLASSNAME, __func__, buffer, omvb, buffer->length, buffer->dts*1e-6, buffer->pts*1e-6, buffer->flags, buffer->type->video.flags,
-          omvb->Width(), omvb->Height(), omvb->AlignedWidth(), omvb->AlignedHeight(),
-          m_decoded_width, m_decoded_height, m_decoded_aligned_width, m_decoded_aligned_height, (char*)&omvb->Encoding());
+      CLog::Log(LOGDEBUG, LOGVIDEO,
+                "%s::%s - omvb:%p mmal:%p len:%u dts:%.3f pts:%.3f flags:%x:%x pool:%p %dx%d "
+                "(%dx%d) %dx%d (%dx%d) enc:%.4s",
+                CLASSNAME, __func__, static_cast<void*>(buffer), static_cast<void*>(omvb),
+                buffer->length, buffer->dts * 1e-6, buffer->pts * 1e-6, buffer->flags,
+                buffer->type->video.flags, static_cast<void*>(m_pool.get()), omvb->Width(),
+                omvb->Height(), omvb->AlignedWidth(), omvb->AlignedHeight(), m_decoded_width,
+                m_decoded_height, m_decoded_aligned_width, m_decoded_aligned_height,
+                (char*)&omvb->Encoding());
       if (wanted)
       {
         std::shared_ptr<CMMALPool> pool = std::dynamic_pointer_cast<CMMALPool>(m_pool);
@@ -324,7 +322,8 @@ bool CMMALVideo::SendCodecConfigData()
   buffer->length = std::min(m_hints.extrasize, buffer->alloc_size);
   memcpy(buffer->data, m_hints.extradata, buffer->length);
   buffer->flags = MMAL_BUFFER_HEADER_FLAG_FRAME_END | MMAL_BUFFER_HEADER_FLAG_CONFIG;
-  CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s - %-8p %-6d flags:%x", CLASSNAME, __func__, buffer, buffer->length, buffer->flags);
+  CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s - %-8p %-6d flags:%x", CLASSNAME, __func__, static_cast<void*>(buffer),
+            buffer->length, buffer->flags);
   status = mmal_port_send_buffer(m_dec_input, buffer);
   if (status != MMAL_SUCCESS)
   {
@@ -337,10 +336,13 @@ bool CMMALVideo::SendCodecConfigData()
 bool CMMALVideo::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options)
 {
   CSingleLock lock(m_sharedSection);
-  CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s usemmal:%d options:%x %dx%d", CLASSNAME, __func__, CServiceBroker::GetSettings().GetBool(CSettings::SETTING_VIDEOPLAYER_USEMMAL), hints.codecOptions, hints.width, hints.height);
+  CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s usemmal:%d options:%x %dx%d", CLASSNAME, __func__, CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_VIDEOPLAYER_USEMMAL), hints.codecOptions, hints.width, hints.height);
 
+  // This occurs at start of m2ts files before streams have been fully identified - just ignore
+  if (!hints.width)
+    return false;
   // we always qualify even if DVDFactoryCodec does this too.
-  if (!CServiceBroker::GetSettings().GetBool(CSettings::SETTING_VIDEOPLAYER_USEMMAL) || (hints.codecOptions & CODEC_FORCE_SOFTWARE))
+  if (!CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_VIDEOPLAYER_USEMMAL) || (hints.codecOptions & CODEC_FORCE_SOFTWARE))
     return false;
 
   std::list<EINTERLACEMETHOD> deintMethods;
@@ -370,9 +372,17 @@ bool CMMALVideo::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options)
   {
     case AV_CODEC_ID_H264:
       // H.264
+      switch (hints.profile)
+      {
+        // Cannot hardware decode Hi10P without artifacts - switch to software on Pi2/Pi3
+        case FF_PROFILE_H264_HIGH_10:
+        case FF_PROFILE_H264_HIGH_10_INTRA:
+          if (g_RBP.RaspberryPiVersion() > 1)
+            return false;
+      }
       m_codingType = MMAL_ENCODING_H264;
       m_pFormatName = "mmal-h264";
-      if (CServiceBroker::GetSettings().GetBool(CSettings::SETTING_VIDEOPLAYER_SUPPORTMVC))
+      if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_VIDEOPLAYER_SUPPORTMVC))
       {
         m_codingType = MMAL_ENCODING_MVC;
         m_pFormatName= "mmal-mvc";
@@ -578,7 +588,7 @@ bool CMMALVideo::AddData(const DemuxPacket &packet)
   uint8_t* pData = packet.pData;
   int iSize = packet.iSize;
   CSingleLock lock(m_sharedSection);
-  //if (g_advancedSettings.CanLogComponent(LOGVIDEO))
+  //if (CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->CanLogComponent(LOGVIDEO))
   //  CLog::Log(LOGDEBUG, "%s::%s - %-8p %-6d dts:%.3f pts:%.3f ready_queue(%d)",
   //    CLASSNAME, __func__, pData, iSize, dts == DVD_NOPTS_VALUE ? 0.0 : packet.dts*1e-6, packet.pts == DVD_NOPTS_VALUE ? 0.0 : packet.pts*1e-6, m_output_ready.size());
 
@@ -619,8 +629,12 @@ bool CMMALVideo::AddData(const DemuxPacket &packet)
       m_packet_num++;
       buffer->flags |= MMAL_BUFFER_HEADER_FLAG_FRAME_END;
     }
-    CLog::Log(LOGDEBUG, LOGVIDEO, "%s::%s - %-8p %-6d/%-6d dts:%.3f pts:%.3f flags:%x ready_queue(%d)",
-         CLASSNAME, __func__, buffer, buffer->length, iSize, packet.dts == DVD_NOPTS_VALUE ? 0.0 : packet.dts*1e-6, packet.pts == DVD_NOPTS_VALUE ? 0.0 : packet.pts*1e-6, buffer->flags, m_output_ready.size());
+    CLog::Log(LOGDEBUG, LOGVIDEO,
+              "%s::%s - %-8p %-6d/%-6d dts:%.3f pts:%.3f flags:%x ready_queue(%d)", CLASSNAME,
+              __func__, static_cast<void*>(buffer), buffer->length, iSize,
+              packet.dts == DVD_NOPTS_VALUE ? 0.0 : packet.dts * 1e-6,
+              packet.pts == DVD_NOPTS_VALUE ? 0.0 : packet.pts * 1e-6, buffer->flags,
+              m_output_ready.size());
     status = mmal_port_send_buffer(m_dec_input, buffer);
     if (status != MMAL_SUCCESS)
     {
@@ -706,12 +720,10 @@ CDVDVideoCodec::VCReturn CMMALVideo::GetPicture(VideoPicture* picture)
   bool drain = (m_codecControlFlags & DVD_CODEC_CTRL_DRAIN) ? true : false;
   bool send_eos = drain && !m_got_eos && m_packet_num_eos != m_packet_num;
 
-  if (picture->videoBuffer)
-    picture->videoBuffer->Release();
-  picture->videoBuffer = nullptr;
-
   // we don't get an EOS response if no packets have been sent
-  if (m_packet_num == 0 && send_eos)
+  if (!drain)
+    m_got_eos = false;
+  else if (m_packet_num == 0 && send_eos)
     m_got_eos = true;
 
   if (send_eos && !m_got_eos)
@@ -783,10 +795,11 @@ CDVDVideoCodec::VCReturn CMMALVideo::GetPicture(VideoPicture* picture)
   if (ret == CDVDVideoCodec::VC_PICTURE)
   {
     assert(buffer && buffer->mmal_buffer);
+    if (picture->videoBuffer)
+      picture->videoBuffer->Release();
     picture->videoBuffer = dynamic_cast<CVideoBuffer*>(buffer);
     assert(picture->videoBuffer);
     picture->color_range  = 0;
-    picture->color_matrix = 4;
     picture->iWidth = buffer->Width() ? buffer->Width() : m_decoded_width;
     picture->iHeight = buffer->Height() ? buffer->Height() : m_decoded_height;
     picture->iDisplayWidth  = picture->iWidth;
@@ -806,13 +819,16 @@ CDVDVideoCodec::VCReturn CMMALVideo::GetPicture(VideoPicture* picture)
     // timestamp is in microseconds
     picture->dts = buffer->mmal_buffer->dts == MMAL_TIME_UNKNOWN ? DVD_NOPTS_VALUE : buffer->mmal_buffer->dts;
     picture->pts = buffer->mmal_buffer->pts == MMAL_TIME_UNKNOWN ? DVD_NOPTS_VALUE : buffer->mmal_buffer->pts;
-
+    picture->iRepeatPicture = 0;
     picture->iFlags  = 0;
     if (buffer->mmal_buffer->flags & MMAL_BUFFER_HEADER_FLAG_USER3)
       picture->iFlags |= DVP_FLAG_DROPPED;
-    CLog::Log(LOGINFO, LOGVIDEO, "%s::%s dts:%.3f pts:%.3f flags:%x:%x MMALBuffer:%p mmal_buffer:%p", CLASSNAME, __func__,
-          picture->dts == DVD_NOPTS_VALUE ? 0.0 : picture->dts*1e-6, picture->pts == DVD_NOPTS_VALUE ? 0.0 : picture->pts*1e-6,
-          picture->iFlags, buffer->mmal_buffer->flags, buffer, buffer->mmal_buffer);
+    CLog::Log(LOGINFO, LOGVIDEO,
+              "%s::%s dts:%.3f pts:%.3f flags:%x:%x MMALBuffer:%p mmal_buffer:%p", CLASSNAME,
+              __func__, picture->dts == DVD_NOPTS_VALUE ? 0.0 : picture->dts * 1e-6,
+              picture->pts == DVD_NOPTS_VALUE ? 0.0 : picture->pts * 1e-6, picture->iFlags,
+              buffer->mmal_buffer->flags, static_cast<void*>(buffer),
+              static_cast<void*>(buffer->mmal_buffer));
     assert(!(buffer->mmal_buffer->flags & MMAL_BUFFER_HEADER_FLAG_DECODEONLY));
     buffer->mmal_buffer->flags &= ~MMAL_BUFFER_HEADER_FLAG_USER3;
     buffer->m_stills = m_hints.stills;

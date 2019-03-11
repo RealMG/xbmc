@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2012-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PVRJobs.h"
@@ -27,7 +15,7 @@
 #include "events/NotificationEvent.h"
 #include "interfaces/AnnouncementManager.h"
 #ifdef TARGET_POSIX
-#include "linux/XTimeUtils.h"
+#include "platform/linux/XTimeUtils.h"
 #endif
 
 #include "pvr/PVRGUIActions.h"
@@ -39,11 +27,6 @@
 
 namespace PVR
 {
-
-bool CPVRSetRecordingOnChannelJob::DoWork()
-{
-  return CServiceBroker::GetPVRManager().GUIActions()->SetRecordingOnChannel(m_channel, m_bOnOff);
-}
 
 CPVRChannelEntryTimeoutJob::CPVRChannelEntryTimeoutJob(int iTimeout)
 {
@@ -107,7 +90,7 @@ bool CPVREventlogJob::DoWork()
         event.m_bError ? CGUIDialogKaiToast::Error : CGUIDialogKaiToast::Info, event.m_label.c_str(), event.m_msg, 5000, true);
 
     // Write event log entry.
-    CEventLog::GetInstance().Add(
+    CServiceBroker::GetEventLog().Add(
       EventPtr(new CNotificationEvent(event.m_label, event.m_msg, event.m_icon, event.m_bError ? EventLevel::Error : EventLevel::Information)));
   }
   return true;
@@ -128,6 +111,12 @@ bool CPVRClientConnectionJob::DoWork(void)
 bool CPVRStartupJob::DoWork(void)
 {
   CServiceBroker::GetPVRManager().Clients()->Start();
+  return true;
+}
+
+bool CPVRUpdateAddonsJob::DoWork(void)
+{
+  CServiceBroker::GetPVRManager().Clients()->UpdateAddons(m_changedAddonId);
   return true;
 }
 

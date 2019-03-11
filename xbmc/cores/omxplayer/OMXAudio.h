@@ -1,31 +1,20 @@
-#pragma once
-
 /*
- *      Copyright (c) 2002 d7o3g4q and RUNTiME
+ *  Copyright (c) 2002 d7o3g4q and RUNTiME
  *      Portions Copyright (c) by the authors of ffmpeg and xvid
- *      Copyright (C) 2012-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "cores/AudioEngine/Utils/AEAudioFormat.h"
 #include "cores/AudioEngine/Utils/AEUtil.h"
 #include "cores/AudioEngine/Interfaces/AEStream.h"
-#include "linux/PlatformDefs.h"
+#include "cores/VideoPlayer/Process/ProcessInfo.h"
+#include "platform/linux/PlatformDefs.h"
 #include "DVDStreamInfo.h"
 
 #include "OMXClock.h"
@@ -44,20 +33,20 @@ extern "C" {
 typedef struct tGUID
 {
   DWORD Data1;
-  WORD  Data2, Data3;
-  BYTE  Data4[8];
+  unsigned short  Data2, Data3;
+  unsigned char  Data4[8];
 } __attribute__((__packed__)) GUID;
 
 // Audio stuff
 typedef struct tWAVEFORMATEX
 {
-  WORD    wFormatTag;
-  WORD    nChannels;
+  unsigned short wFormatTag;
+  unsigned short nChannels;
   DWORD   nSamplesPerSec;
   DWORD   nAvgBytesPerSec;
-  WORD    nBlockAlign;
-  WORD    wBitsPerSample;
-  WORD    cbSize;
+  unsigned short nBlockAlign;
+  unsigned short wBitsPerSample;
+  unsigned short cbSize;
  } __attribute__((__packed__)) WAVEFORMATEX, *PWAVEFORMATEX, *LPWAVEFORMATEX;
 
  #define WAVE_FORMAT_UNKNOWN           0x0000
@@ -71,9 +60,9 @@ typedef struct tWAVEFORMATEXTENSIBLE
   WAVEFORMATEX Format;
   union
   {
-    WORD wValidBitsPerSample;
-    WORD wSamplesPerBlock;
-    WORD wReserved;
+    unsigned short wValidBitsPerSample;
+    unsigned short wSamplesPerBlock;
+    unsigned short wReserved;
   } Samples;
   DWORD dwChannelMask;
   GUID SubFormat;
@@ -82,11 +71,11 @@ typedef struct tWAVEFORMATEXTENSIBLE
 class COMXAudio
 {
 public:
-  unsigned int GetChunkLen();
+  unsigned int GetChunkLen() const;
   float GetDelay();
   float GetCacheTime();
   float GetCacheTotal();
-  COMXAudio();
+  COMXAudio(CProcessInfo &processInfo);
   bool Initialize(AEAudioFormat format, OMXClock *clock, CDVDStreamInfo &hints, CAEChannelInfo channelMap, bool bUsePassthrough);
   bool PortSettingsChanged();
   ~COMXAudio();
@@ -112,7 +101,7 @@ public:
   void SetCodingType(AEAudioFormat format);
 
   static void PrintChannels(OMX_AUDIO_CHANNELTYPE eChannelMapping[]);
-  void PrintPCM(OMX_AUDIO_PARAM_PCMMODETYPE *pcm, std::string direction);
+  static void PrintPCM(OMX_AUDIO_PARAM_PCMMODETYPE *pcm, std::string direction);
   void UpdateAttenuation();
 
   bool BadState() const { return !m_Initialized; };
@@ -165,6 +154,7 @@ private:
   OMX_AUDIO_PARAM_DTSTYPE     m_dtsParam;
   WAVEFORMATEXTENSIBLE        m_wave_header;
   IAEStream *m_pAudioStream;
+  CProcessInfo&     m_processInfo;
 protected:
   COMXCoreComponent m_omx_render_analog;
   COMXCoreComponent m_omx_render_hdmi;
@@ -178,5 +168,5 @@ protected:
   COMXCoreTunnel    m_omx_tunnel_splitter_analog;
   COMXCoreTunnel    m_omx_tunnel_splitter_hdmi;
 
-  CCriticalSection m_critSection;
+  mutable CCriticalSection m_critSection;
 };

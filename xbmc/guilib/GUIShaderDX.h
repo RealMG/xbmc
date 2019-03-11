@@ -1,44 +1,33 @@
 /*
-*      Copyright (C) 2005-2015 Team Kodi
-*      http://kodi.tv
-*
-*  This Program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2, or (at your option)
-*  any later version.
-*
-*  This Program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with XBMC; see the file COPYING.  If not, see
-*  <http://www.gnu.org/licenses/>.
-*
-*/
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
 
-#include "Geometry.h"
+#include "utils/Geometry.h"
 #include "Texture.h"
 #include "D3DResource.h"
-#include <DirectXMath.h>
 
-using namespace DirectX;
+#include <DirectXMath.h>
+#include <wrl/client.h>
 
 struct Vertex {
   Vertex() {}
 
-  Vertex(XMFLOAT3 p, XMFLOAT4 c)
+  Vertex(DirectX::XMFLOAT3 p, DirectX::XMFLOAT4 c)
     : pos(p), color(c) {}
 
-  Vertex(XMFLOAT3 p, XMFLOAT4 c, XMFLOAT2 t1, XMFLOAT2 t2)
+  Vertex(DirectX::XMFLOAT3 p, DirectX::XMFLOAT4 c, DirectX::XMFLOAT2 t1, DirectX::XMFLOAT2 t2)
     : pos(p), color(c), texCoord(t1), texCoord2(t2) {}
 
-  XMFLOAT3 pos;
-  XMFLOAT4 color;
-  XMFLOAT2 texCoord;
-  XMFLOAT2 texCoord2;
+  DirectX::XMFLOAT3 pos;
+  DirectX::XMFLOAT4 color;
+  DirectX::XMFLOAT2 texCoord;
+  DirectX::XMFLOAT2 texCoord2;
 };
 
 class ID3DResource;
@@ -58,25 +47,25 @@ public:
   void SetShaderViews(unsigned int numViews, ID3D11ShaderResourceView** views);
   void SetViewPort(D3D11_VIEWPORT viewPort);
 
-  void XM_CALLCONV GetWVP(XMMATRIX &w, XMMATRIX &v, XMMATRIX &p) 
-  { 
-    w = m_cbWorldViewProj.world; 
-    v = m_cbWorldViewProj.view; 
-    p = m_cbWorldViewProj.projection; 
+  void XM_CALLCONV GetWVP(DirectX::XMMATRIX &w, DirectX::XMMATRIX &v, DirectX::XMMATRIX &p)
+  {
+    w = m_cbWorldViewProj.world;
+    v = m_cbWorldViewProj.view;
+    p = m_cbWorldViewProj.projection;
   }
-  XMMATRIX XM_CALLCONV GetWorld()      const { return m_cbWorldViewProj.world; }
-  XMMATRIX XM_CALLCONV GetView()       const { return m_cbWorldViewProj.view; }
-  XMMATRIX XM_CALLCONV GetProjection() const { return m_cbWorldViewProj.projection; }
-  void     XM_CALLCONV SetWVP(const XMMATRIX &w, const XMMATRIX &v, const XMMATRIX &p);
-  void     XM_CALLCONV SetWorld(const XMMATRIX &value);
-  void     XM_CALLCONV SetView(const XMMATRIX &value);
-  void     XM_CALLCONV SetProjection(const XMMATRIX &value);
-  void                 Project(float &x, float &y, float &z);
+  DirectX::XMMATRIX XM_CALLCONV GetWorld() const { return m_cbWorldViewProj.world; }
+  DirectX::XMMATRIX XM_CALLCONV GetView() const { return m_cbWorldViewProj.view; }
+  DirectX::XMMATRIX XM_CALLCONV GetProjection() const { return m_cbWorldViewProj.projection; }
+  void XM_CALLCONV SetWVP(const DirectX::XMMATRIX &w, const DirectX::XMMATRIX &v, const DirectX::XMMATRIX &p);
+  void XM_CALLCONV SetWorld(const DirectX::XMMATRIX &value);
+  void XM_CALLCONV SetView(const DirectX::XMMATRIX &value);
+  void XM_CALLCONV SetProjection(const DirectX::XMMATRIX &value);
+  void Project(float &x, float &y, float &z);
 
   void DrawQuad(Vertex& v1, Vertex& v2, Vertex& v3, Vertex& v4);
   void DrawIndexed(unsigned int indexCount, unsigned int startIndex, unsigned int startVertex);
   void Draw(unsigned int vertexCount, unsigned int startVertex);
-  
+
   bool  HardwareClipIsPossible(void) const { return m_clipPossible; }
   float GetClipXFactor(void) const { return m_clipXFactor;  }
   float GetClipXOffset(void) const { return m_clipXOffset;  }
@@ -100,9 +89,9 @@ public:
 private:
   struct cbWorldViewProj
   {
-    XMMATRIX world;
-    XMMATRIX view;
-    XMMATRIX projection;
+    DirectX::XMMATRIX world;
+    DirectX::XMMATRIX view;
+    DirectX::XMMATRIX projection;
   };
   struct cbViewPort
   {
@@ -113,7 +102,7 @@ private:
   };
   struct cbWorld
   {
-    XMMATRIX wvp;
+    DirectX::XMMATRIX wvp;
     float blackLevel;
     float colorRange;
   };
@@ -125,26 +114,26 @@ private:
   void ClipToScissorParams(void);
 
   // GUI constants
-  cbViewPort          m_cbViewPort;
-  cbWorldViewProj     m_cbWorldViewProj;
+  cbViewPort m_cbViewPort;
+  cbWorldViewProj m_cbWorldViewProj;
 
-  bool                m_bCreated;
-  ID3D11SamplerState* m_pSampLinear;
-  CD3DVertexShader    m_vertexShader;
-  CD3DPixelShader     m_pixelShader[SHADER_METHOD_RENDER_COUNT];
-  size_t              m_currentShader;
+  bool  m_bCreated;
+  size_t m_currentShader;
+  CD3DVertexShader m_vertexShader;
+  CD3DPixelShader m_pixelShader[SHADER_METHOD_RENDER_COUNT];
+  Microsoft::WRL::ComPtr<ID3D11SamplerState> m_pSampLinear;
 
   // GUI buffers
-  ID3D11Buffer*       m_pWVPBuffer;
-  ID3D11Buffer*       m_pVPBuffer;
-  ID3D11Buffer*       m_pVertexBuffer;
-  bool                m_bIsWVPDirty;
-  bool                m_bIsVPDirty;
+  bool m_bIsWVPDirty;
+  bool m_bIsVPDirty;
+  Microsoft::WRL::ComPtr<ID3D11Buffer> m_pWVPBuffer;
+  Microsoft::WRL::ComPtr<ID3D11Buffer> m_pVPBuffer;
+  Microsoft::WRL::ComPtr<ID3D11Buffer> m_pVertexBuffer;
 
   // clip to scissors params
-  bool                m_clipPossible;
-  float               m_clipXFactor;
-  float               m_clipXOffset;
-  float               m_clipYFactor;
-  float               m_clipYOffset;
+  bool m_clipPossible;
+  float m_clipXFactor;
+  float m_clipXOffset;
+  float m_clipYFactor;
+  float m_clipYOffset;
 };

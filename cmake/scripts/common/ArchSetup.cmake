@@ -11,6 +11,9 @@
 # DEP_DEFINES - compiler definitions for system dependencies (e.g. LIRC)
 # + the results of compiler tests etc.
 
+# workaround a bug in older cmake, where binutils wouldn't be set after deleting CMakeCache.txt
+include(CMakeFindBinUtils)
+
 include(CheckCXXSourceCompiles)
 include(CheckSymbolExists)
 include(CheckFunctionExists)
@@ -52,7 +55,7 @@ macro(check_builtin func var)
 endmacro()
 
 
-# -------- Main script --------- 
+# -------- Main script ---------
 message(STATUS "System type: ${CMAKE_SYSTEM_NAME}")
 
 if(WITH_CPU)
@@ -150,7 +153,12 @@ if(NOT DEFINED NEON OR NEON)
   endif()
 endif()
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  add_options (ALL_LANGUAGES DEBUG "-g" "-D_DEBUG" "-Wall")
+if(PLATFORM_DEFINES)
+  add_options(ALL_LANGUAGES ALL_BUILDS ${PLATFORM_DEFINES})
+endif()
+
+if(NOT MSVC)
+  add_options(ALL_LANGUAGES ALL_BUILDS "-Wall")
+  add_options(ALL_LANGUAGES DEBUG "-g" "-D_DEBUG")
 endif()
 

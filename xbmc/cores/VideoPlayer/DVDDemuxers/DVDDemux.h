@@ -1,29 +1,17 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <string>
 #include <vector>
 #include <memory>
-#include "system.h"
+#include "Interface/StreamInfo.h"
 
 struct DemuxPacket;
 struct DemuxCryptoSession;
@@ -91,11 +79,9 @@ public:
     pPrivate = NULL;
     ExtraData = NULL;
     ExtraSize = 0;
-    memset(language, 0, sizeof(language));
     disabled = false;
     changes = 0;
-    flags = FLAG_NONE;
-    realtime = false;
+    flags = StreamFlags::FLAG_NONE;
   }
 
   virtual ~CDemuxStream()
@@ -114,32 +100,20 @@ public:
   int level;   // encoder level of the stream reported by the decoder. used to qualify hw decoders.
   StreamType type;
   int source;
-  bool realtime;
 
   int iDuration; // in mseconds
   void* pPrivate; // private pointer for the demuxer
   uint8_t*     ExtraData; // extra data for codec to use
   unsigned int ExtraSize; // size of extra data
 
-  char language[4]; // ISO 639 3-letter language code (empty string if undefined)
+  StreamFlags flags;
+  std::string language; // RFC 5646 language code (empty string if undefined)
   bool disabled; // set when stream is disabled. (when no decoder exists)
 
+  std::string name;
   std::string codecName;
 
   int  changes; // increment on change which player may need to know about
-
-  enum EFlags
-  { FLAG_NONE             = 0x0000 
-  , FLAG_DEFAULT          = 0x0001
-  , FLAG_DUB              = 0x0002
-  , FLAG_ORIGINAL         = 0x0004
-  , FLAG_COMMENT          = 0x0008
-  , FLAG_LYRICS           = 0x0010
-  , FLAG_KARAOKE          = 0x0020
-  , FLAG_FORCED           = 0x0040
-  , FLAG_HEARING_IMPAIRED = 0x0080
-  , FLAG_VISUAL_IMPAIRED  = 0x0100
-  } flags;
 
   std::shared_ptr<DemuxCryptoSession> cryptoSession;
   std::shared_ptr<ADDON::IAddonProvider> externalInterfaces;
@@ -203,6 +177,7 @@ public:
   int iBitRate;
   int iBitsPerSample;
   uint64_t iChannelLayout;
+  std::string m_channelLayoutName;
 };
 
 class CDemuxStreamSubtitle : public CDemuxStream
@@ -243,7 +218,7 @@ public:
   /*
    * Reset the entire demuxer (same result as closing and opening it)
    */
-  virtual void Reset() = 0;
+  virtual bool Reset() = 0;
 
   /*
    * Aborts any internal reading that might be stalling main thread
@@ -320,6 +295,16 @@ public:
   virtual int GetNrOfStreams() const = 0;
 
   /*
+   * get a list of available programs
+   */
+  virtual int GetPrograms(std::vector<ProgramInfo>& programs) { return 0; }
+
+  /*
+   * select programs
+   */
+  virtual void SetProgram(int progId) {}
+
+  /*
    * returns opened filename
    */
   virtual std::string GetFileName() { return ""; }
@@ -349,7 +334,7 @@ public:
    * adaptive demuxers like DASH can use this to choose best fitting video stream
    */
   virtual void SetVideoResolution(int width, int height) {};
-  
+
   /*
   * return the id of the demuxer
   */

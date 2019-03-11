@@ -1,32 +1,24 @@
-#pragma once
 /*
- *      Copyright (C) 2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <memory>
 #include <string>
+
+#include "threads/CriticalSection.h"
 
 #include "pvr/PVRChannelNumberInputHandler.h"
 #include "pvr/PVRGUIChannelNavigator.h"
 #include "pvr/PVRSettings.h"
 #include "pvr/PVRTypes.h"
 
+class CAction;
 class CFileItem;
 typedef std::shared_ptr<CFileItem> CFileItemPtr;
 
@@ -41,18 +33,27 @@ namespace PVR
     PlaybackTypeRadio
   };
 
+  enum class ParentalCheckResult
+  {
+    CANCELED,
+    FAILED,
+    SUCCESS
+  };
+
   class CPVRChannelSwitchingInputHandler : public CPVRChannelNumberInputHandler
   {
   public:
     // CPVRChannelNumberInputHandler implementation
+    void GetChannelNumbers(std::vector<std::string>& channelNumbers) override;
+    void AppendChannelNumberCharacter(char cCharacter) override;
     void OnInputDone() override;
 
   private:
     /*!
      * @brief Switch to the channel with the given number.
-     * @param iChannelNumber the channel number
+     * @param channelNumber the channel number
      */
-    void SwitchToChannel(int iChannelNumber);
+    void SwitchToChannel(const CPVRChannelNumber& channelNumber);
 
     /*!
      * @brief Switch to the previously played channel.
@@ -174,6 +175,12 @@ namespace PVR
     bool ShowRecordingInfo(const CFileItemPtr &item) const;
 
     /*!
+     * @brief Toggle recording on the currently playing channel, if any.
+     * @return True if the recording was started or stopped successfully, false otherwise.
+     */
+    bool ToggleRecordingOnPlayingChannel();
+
+    /*!
      * @brief Start or stop recording on a given channel.
      * @param channel the channel to start/stop recording.
      * @param bOnOff True to start recording, false to stop.
@@ -194,6 +201,13 @@ namespace PVR
      * @return true on success, false otherwise.
      */
     bool EditRecording(const CFileItemPtr &item) const;
+
+    /*!
+     * @brief Check if any recording settings can be edited.
+     * @param item containing the recording to edit.
+     * @return true on success, false otherwise.
+     */
+    bool CanEditRecording(const CFileItem& item) const;
 
     /*!
      * @brief Rename a recording, showing a text input dialog.
@@ -299,11 +313,10 @@ namespace PVR
     bool IsRunningChannelScan() const { return m_bChannelScanRunning; }
 
     /*!
-     * @brief Open selection and progress PVR actions.
-     * @param item The selected file item for which the hook was called.
+     * @brief Select and invoke client-specific settings actions
      * @return true on success, false otherwise.
      */
-    bool ProcessMenuHooks(const CFileItemPtr &item);
+    bool ProcessSettingsMenuHooks();
 
     /*!
      * @brief Reset the TV database to it's initial state and delete all the data.
@@ -315,15 +328,55 @@ namespace PVR
     /*!
      * @brief Check if channel is parental locked. Ask for PIN if necessary.
      * @param channel The channel to do the check for.
-     * @return True if channel is unlocked (by default or PIN unlocked), false otherwise.
+     * @return the result of the check (success, failed, or canceled by user).
      */
-    bool CheckParentalLock(const CPVRChannelPtr &channel) const;
+    ParentalCheckResult CheckParentalLock(const CPVRChannelPtr &channel) const;
 
     /*!
      * @brief Open Numeric dialog to check for parental PIN.
-     * @return True if entered PIN was correct, false otherwise.
+     * @return the result of the check (success, failed, or canceled by user).
      */
-    bool CheckParentalPIN() const;
+    ParentalCheckResult CheckParentalPIN() const;
+
+    /*!
+     * @brief Check whether the system Kodi is running on can be powered down
+     *        (shutdown/reboot/suspend/hibernate) without stopping any active
+     *        recordings and/or without preventing the start of recordings
+     *        scheduled for now + pvrpowermanagement.backendidletime.
+     * @param bAskUser True to informs user in case of potential
+     *        data loss. User can decide to allow powerdown anyway. False to
+     *        not to ask user and to not confirm power down.
+     * @return True if system can be safely powered down, false otherwise.
+     */
+    bool CanSystemPowerdown(bool bAskUser = true) const;
+
+    /*!
+     * @brief Get the currently selected item path; used across several windows/dialogs to share item selection.
+     * @param bRadio True to query the selected path for PVR radio, false for Live TV.
+     * @return the path.
+     */
+    std::string GetSelectedItemPath(bool bRadio) const;
+
+    /*!
+     * @brief Set the currently selected item path; used across several windows/dialogs to share item selection.
+     * @param bRadio True to set the selected path for PVR radio, false for Live TV.
+     * @param path The new path to set.
+     */
+    void SetSelectedItemPath(bool bRadio, const std::string &path);
+
+    /*!
+     * @brief Seek to the start of the next epg event in timeshift buffer, relative to the currently playing event.
+     *        If there is no next event, seek to the end of the currently playing event (to the 'live' position).
+     */
+    void SeekForward();
+
+    /*!
+     * @brief Seek to the start of the previous epg event in timeshift buffer, relative to the currently playing event
+     *        or if there is no previous event or if playback time is greater than given threshold, seek to the start
+     *        of the playing event.
+     * @param iThreshold the value in seconds to trigger seek to start of current event instead of start of previous event.
+     */
+    void SeekBackward(unsigned int iThreshold);
 
     /*!
      * @brief Get the currently active channel number input handler.
@@ -336,6 +389,18 @@ namespace PVR
      * @return the navigator.
      */
     CPVRGUIChannelNavigator &GetChannelNavigator();
+
+    /*!
+     * @brief Inform GUI actions that playback of an item just started.
+     * @param item The item that started to play.
+     */
+    void OnPlaybackStarted(const CFileItemPtr &item);
+
+    /*!
+     * @brief Inform GUI actions that playback of an item was stopped due to user interaction.
+     * @param item The item that stopped to play.
+     */
+    void OnPlaybackStopped(const CFileItemPtr &item);
 
   private:
     CPVRGUIActions(const CPVRGUIActions&) = delete;
@@ -365,6 +430,15 @@ namespace PVR
      * @return true, if the timer or timer rule was deleted successfully, false otherwise.
     */
     bool DeleteTimer(const CFileItemPtr &item, bool bIsRecording, bool bDeleteRule) const;
+
+    /*!
+     * @brief Delete a timer or timer rule, showing a confirmation dialog in case a timer currently recording shall be deleted.
+     * @param timer containing a timer or timer rule to delete.
+     * @param bIsRecording denotes whether the timer is currently recording (controls correct confirmation dialog).
+     * @param bDeleteRule denotes to delete a timer rule. For convenience, one can pass a timer created by a rule.
+     * @return true, if the timer or timer rule was deleted successfully, false otherwise.
+     */
+    bool DeleteTimer(const CPVRTimerInfoTagPtr &timer, bool bIsRecording, bool bDeleteRule) const;
 
     /*!
      * @brief Open a dialog to confirm timer delete.
@@ -418,26 +492,23 @@ namespace PVR
     void CheckAndSwitchToFullscreen(bool bFullscreen) const;
 
     /*!
-     * @brief Switch channel.
-     * @param item containing a channel or an epg tag.
-     * @param bCheckResume controls resume check in case a recording for the current epg event is present.
-     * @param bFullscreen start playback fullscreen or not.
-     * @return true on success, false otherwise.
-     */
-    bool SwitchToChannel(const CFileItemPtr &item, bool bCheckResume, bool bFullscreen) const;
-
-    /*!
      * @brief Start playback of the given item.
      * @param bFullscreen start playback fullscreen or not.
      * @param item containing a channel or a recording.
      */
     void StartPlayback(CFileItem *item, bool bFullscreen) const;
 
-  private:
+    bool AllLocalBackendsIdle(CPVRTimerInfoTagPtr& causingEvent) const;
+    bool EventOccursOnLocalBackend(const CFileItemPtr& item) const;
+    bool IsNextEventWithinBackendIdleTime(void) const;
+
+    mutable CCriticalSection m_critSection;
     CPVRChannelSwitchingInputHandler m_channelNumberInputHandler;
-    bool m_bChannelScanRunning;
+    bool m_bChannelScanRunning = false;
     CPVRSettings m_settings;
     CPVRGUIChannelNavigator m_channelNavigator;
+    std::string m_selectedItemPathTV;
+    std::string m_selectedItemPathRadio;
   };
 
 } // namespace PVR

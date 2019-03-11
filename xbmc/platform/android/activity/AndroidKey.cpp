@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "AndroidKey.h"
@@ -25,7 +13,8 @@
 #include "AndroidExtra.h"
 #include "XBMCApp.h"
 #include "input/Key.h"
-#include "windowing/WinEvents.h"
+#include "ServiceBroker.h"
+#include "windowing/android/WinSystemAndroid.h"
 
 
 typedef struct {
@@ -155,6 +144,8 @@ static KeyMap keyMap[] = {
   { AKEYCODE_PROG_GREEN      , XBMCK_GREEN },
   { AKEYCODE_PROG_YELLOW     , XBMCK_YELLOW },
   { AKEYCODE_PROG_BLUE       , XBMCK_BLUE },
+  { AKEYCODE_CHANNEL_UP      , XBMCK_PAGEUP },
+  { AKEYCODE_CHANNEL_DOWN    , XBMCK_PAGEDOWN },
 
   { AKEYCODE_F1              , XBMCK_F1 },
   { AKEYCODE_F2              , XBMCK_F2 },
@@ -321,6 +312,10 @@ bool CAndroidKey::onKeyboardEvent(AInputEvent *event)
 
 void CAndroidKey::XBMC_Key(uint8_t code, uint16_t key, uint16_t modifiers, uint16_t unicode, bool up)
 {
+  CWinSystemAndroid* winSystem(dynamic_cast<CWinSystemAndroid*>(CServiceBroker::GetWinSystem()));
+  if (!winSystem)
+    return;
+
   XBMC_Event newEvent;
   memset(&newEvent, 0, sizeof(newEvent));
 
@@ -332,5 +327,5 @@ void CAndroidKey::XBMC_Key(uint8_t code, uint16_t key, uint16_t modifiers, uint1
   newEvent.key.keysym.mod = (XBMCMod)modifiers;
 
   //CXBMCApp::android_printf("XBMC_Key(%u, %u, 0x%04X, %d)", code, key, modifiers, up);
-  CWinEvents::MessagePush(&newEvent);
+  winSystem->MessagePush(&newEvent);
 }

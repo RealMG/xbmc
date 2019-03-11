@@ -1,24 +1,12 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <string>
 #include <utility>
@@ -38,6 +26,8 @@ enum CONTEXT_BUTTON { CONTEXT_BUTTON_CANCELLED = 0,
                       CONTEXT_BUTTON_RIP_CD,
                       CONTEXT_BUTTON_CANCEL_RIP_CD,
                       CONTEXT_BUTTON_RIP_TRACK,
+                      CONTEXT_BUTTON_EJECT_DISC,
+                      CONTEXT_BUTTON_EJECT_DRIVE,
                       CONTEXT_BUTTON_EDIT_SOURCE,
                       CONTEXT_BUTTON_REMOVE_SOURCE,
                       CONTEXT_BUTTON_SET_DEFAULT,
@@ -92,6 +82,7 @@ enum CONTEXT_BUTTON { CONTEXT_BUTTON_CANCELLED = 0,
                       CONTEXT_BUTTON_BEGIN,
                       CONTEXT_BUTTON_END,
                       CONTEXT_BUTTON_NOW,
+                      CONTEXT_BUTTON_DATE,
                       CONTEXT_BUTTON_PLAY_AND_QUEUE,
                       CONTEXT_BUTTON_PLAY_ONLY_THIS,
                       CONTEXT_BUTTON_UPDATE_EPG,
@@ -103,10 +94,10 @@ enum CONTEXT_BUTTON { CONTEXT_BUTTON_CANCELLED = 0,
                       CONTEXT_BUTTON_EDIT_SORTTITLE,
                       CONTEXT_BUTTON_DELETE_ALL,
                       CONTEXT_BUTTON_HELP,
-                      CONTEXT_BUTTON_ACTIVE_ADSP_SETTINGS,
+                      CONTEXT_BUTTON_PLAY_NEXT,
                     };
 
-class CContextButtons : public std::vector< std::pair<unsigned int, std::string> >
+class CContextButtons : public std::vector< std::pair<size_t, std::string> >
 {
 public:
   void Add(unsigned int, const std::string &label);

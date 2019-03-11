@@ -1,38 +1,27 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 /*!
  \file Key.h
  \brief
  */
-#pragma once
-
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
 
 //! @todo Remove dependence on CAction
-#include "Action.h"
-#include "ActionIDs.h"
+#include "input/actions/Action.h"
+#include "input/actions/ActionIDs.h"
 
 #include <string>
 #include <stdint.h>
 
 // Reserved 0 - 255
-//  XBIRRemote.h
+//  IRRemote.h
 //  XINPUT_IR_REMOTE-*
 
 /*
@@ -149,7 +138,7 @@ public:
   CKey(void);
   CKey(uint32_t buttonCode, uint8_t leftTrigger = 0, uint8_t rightTrigger = 0, float leftThumbX = 0.0f, float leftThumbY = 0.0f, float rightThumbX = 0.0f, float rightThumbY = 0.0f, float repeat = 0.0f);
   CKey(uint32_t buttonCode, unsigned int held);
-  CKey(uint8_t vkey, wchar_t unicode, char ascii, uint32_t modifiers, unsigned int held);
+  CKey(uint32_t keycode, uint8_t vkey, wchar_t unicode, char ascii, uint32_t modifiers, uint32_t lockingModifiers, unsigned int held);
   CKey(const CKey& key);
   void Reset();
 
@@ -169,10 +158,12 @@ public:
   bool GetFromService() const { return m_fromService; }
 
   inline uint32_t GetButtonCode() const { return m_buttonCode; }
+  inline uint32_t GetKeycode() const    { return m_keycode; } // XBMCKey enum in XBMC_keysym.h
   inline uint8_t  GetVKey() const       { return m_vkey; }
   inline wchar_t  GetUnicode() const    { return m_unicode; }
   inline char     GetAscii() const      { return m_ascii; }
   inline uint32_t GetModifiers() const  { return m_modifiers; };
+  inline uint32_t GetLockingModifiers() const { return m_lockingModifiers; };
   inline unsigned int GetHeld() const   { return m_held; }
 
   enum Modifier {
@@ -182,15 +173,20 @@ public:
     MODIFIER_RALT  = 0x00080000,
     MODIFIER_SUPER = 0x00100000,
     MODIFIER_META  = 0X00200000,
-    MODIFIER_LONG  = 0X01000000
+    MODIFIER_LONG  = 0X01000000,
+    MODIFIER_NUMLOCK = 0X02000000,
+    MODIFIER_CAPSLOCK = 0X04000000,
+    MODIFIER_SCROLLLOCK = 0X08000000,
   };
 
 private:
   uint32_t m_buttonCode;
+  uint32_t m_keycode;
   uint8_t  m_vkey;
   wchar_t  m_unicode;
   char     m_ascii;
   uint32_t m_modifiers;
+  uint32_t m_lockingModifiers;
   unsigned int m_held;
 
   uint8_t m_leftTrigger;

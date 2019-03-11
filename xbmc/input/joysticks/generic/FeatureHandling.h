@@ -1,22 +1,11 @@
 /*
- *      Copyright (C) 2014-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include "input/joysticks/JoystickTypes.h"
@@ -90,10 +79,33 @@ namespace JOYSTICK
     bool AcceptsInput(bool bActivation);
 
   protected:
+    /*!
+     * \brief Reset motion timer
+     */
+    void ResetMotion();
+
+    /*!
+     * \brief Start the motion timer
+     */
+    void StartMotion();
+
+    /*!
+     * \brief Check if the feature is in motion
+     */
+    bool InMotion() const;
+
+    /*!
+     * \brief Get the time for which the feature has been in motion
+     */
+    unsigned int MotionTimeMs() const;
+
     const FeatureName    m_name;
     IInputHandler* const m_handler;
     IButtonMap* const    m_buttonMap;
     const bool           m_bEnabled;
+
+  private:
+    unsigned int m_motionStartTimeMs = 0;
   };
 
   class CScalarFeature : public CJoystickFeature
@@ -117,7 +129,6 @@ namespace JOYSTICK
     // State variables
     INPUT_TYPE       m_inputType = INPUT_TYPE::UNKNOWN;
     bool             m_bDigitalState;
-    unsigned int     m_motionStartTimeMs;
     bool             m_bInitialPressHandled = false;
 
     // Analog state variables
@@ -191,6 +202,42 @@ namespace JOYSTICK
     float m_negativeDistance;
   };
 
+  class CAxisFeature : public CJoystickFeature
+  {
+  public:
+    CAxisFeature(const FeatureName& name, IInputHandler* handler, IButtonMap* buttonMap);
+    virtual ~CAxisFeature() = default;
+
+    // partial implementation of CJoystickFeature
+    virtual bool OnDigitalMotion(const CDriverPrimitive& source, bool bPressed) override;
+    virtual void ProcessMotions(void) override;
+
+  protected:
+    CFeatureAxis m_axis;
+
+    float m_state;
+  };
+
+  class CWheel : public CAxisFeature
+  {
+  public:
+    CWheel(const FeatureName& name, IInputHandler* handler, IButtonMap* buttonMap);
+    virtual ~CWheel() = default;
+
+    // partial implementation of CJoystickFeature
+    virtual bool OnAnalogMotion(const CDriverPrimitive& source, float magnitude) override;
+  };
+
+  class CThrottle : public CAxisFeature
+  {
+  public:
+    CThrottle(const FeatureName& name, IInputHandler* handler, IButtonMap* buttonMap);
+    virtual ~CThrottle() = default;
+
+    // partial implementation of CJoystickFeature
+    virtual bool OnAnalogMotion(const CDriverPrimitive& source, float magnitude) override;
+  };
+
   class CAnalogStick : public CJoystickFeature
   {
   public:
@@ -208,8 +255,6 @@ namespace JOYSTICK
 
     float m_vertState;
     float m_horizState;
-
-    unsigned int m_motionStartTimeMs;
   };
 
   class CAccelerometer : public CJoystickFeature

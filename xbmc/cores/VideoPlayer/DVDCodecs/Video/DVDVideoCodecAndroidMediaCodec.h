@@ -1,26 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, write to
- *  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
- *  http://www.gnu.org/copyleft/gpl.html
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
+#pragma once
 
 #include <deque>
 #include <vector>
@@ -34,7 +20,7 @@
 #include "platform/android/activity/JNIXBMCVideoView.h"
 #include "threads/Thread.h"
 #include "threads/SingleLock.h"
-#include "guilib/Geometry.h"
+#include "utils/Geometry.h"
 #include "cores/VideoPlayer/Process/VideoBuffer.h"
 
 #include <media/NdkMediaCodec.h>
@@ -118,6 +104,7 @@ public:
 
   std::shared_ptr<CMediaCodec> GetMediaCodec();
   void ResetMediaCodec();
+  void ReleaseMediaCodecBuffers();
 
 private:
   CCriticalSection m_criticalSection;;
@@ -150,6 +137,8 @@ public:
 protected:
   void            Dispose();
   void            FlushInternal(void);
+  void            SignalEndOfStream();
+  void            InjectExtraData(AMediaFormat* mediaformat);
   bool            ConfigureMediaCodec(void);
   int             GetOutputPicture(void);
   void            ConfigureOutputFormat(AMediaFormat* mediaformat);
@@ -185,6 +174,8 @@ protected:
 
   uint32_t m_OutputDuration, m_fpsDuration;
   int64_t m_lastPTS;
+  int64_t m_invalidPTSValue = 0;
+  double m_dtsShift;
 
   static std::atomic<bool> m_InstanceGuard;
 
@@ -196,6 +187,7 @@ protected:
   mpeg2_sequence  *m_mpeg2_sequence;
   int             m_src_offset[4];
   int             m_src_stride[4];
+  bool            m_useDTSforPTS;
 
   // CJNISurfaceHolderCallback interface
 public:

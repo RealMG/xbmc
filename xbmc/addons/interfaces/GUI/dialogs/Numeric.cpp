@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Numeric.h"
@@ -77,8 +65,10 @@ int Interface_GUIDialogNumeric::show_and_verify_password(void* kodiBase, const c
 
   if (!password || !heading)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogNumeric::%s - invalid handler data (password='%p', heading='%p') on addon '%s'",
-                          __FUNCTION__, password, heading, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogNumeric::%s - invalid handler data (password='%p', heading='%p') "
+              "on addon '%s'",
+              __FUNCTION__, password, heading, addon->ID().c_str());
     return -1;
   }
 
@@ -97,16 +87,21 @@ bool Interface_GUIDialogNumeric::show_and_verify_input(void* kodiBase, const cha
 
   if (!verify_in || !verify_out || !heading)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogNumeric::%s - invalid handler data (verify_in='%p', verify_out='%p', heading='%p') on addon '%s'",
-                          __FUNCTION__, verify_in, verify_out, heading, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogNumeric::%s - invalid handler data (verify_in='%p', "
+              "verify_out='%p', heading='%p') on addon '%s'",
+              __FUNCTION__, verify_in, static_cast<void*>(verify_out), heading,
+              addon->ID().c_str());
     return false;
   }
 
   std::string str = verify_in;
-  bool bRet = CGUIDialogNumeric::ShowAndVerifyInput(str, heading, verify_input);
-  if (bRet)
+  if (CGUIDialogNumeric::ShowAndVerifyInput(str, heading, verify_input) == InputVerificationResult::SUCCESS)
+  {
     *verify_out = strdup(str.c_str());
-  return bRet;
+    return true;
+  }
+  return false;
 }
 
 bool Interface_GUIDialogNumeric::show_and_get_time(void* kodiBase, tm* time, const char* heading)
@@ -120,8 +115,10 @@ bool Interface_GUIDialogNumeric::show_and_get_time(void* kodiBase, tm* time, con
 
   if (!time || !heading)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogNumeric::%s - invalid handler data (time='%p', heading='%p') on addon '%s'",
-                          __FUNCTION__, time, heading, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogNumeric::%s - invalid handler data (time='%p', heading='%p') on "
+              "addon '%s'",
+              __FUNCTION__, static_cast<void*>(time), heading, addon->ID().c_str());
     return false;
   }
 
@@ -148,8 +145,10 @@ bool Interface_GUIDialogNumeric::show_and_get_date(void* kodiBase, tm *date, con
 
   if (!date || !heading)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogNumeric::%s - invalid handler data (date='%p', heading='%p') on addon '%s'",
-                          __FUNCTION__, date, heading, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogNumeric::%s - invalid handler data (date='%p', heading='%p') on "
+              "addon '%s'",
+              __FUNCTION__, static_cast<void*>(date), heading, addon->ID().c_str());
     return false;
   }
 
@@ -176,8 +175,11 @@ bool Interface_GUIDialogNumeric::show_and_get_ip_address(void* kodiBase, const c
 
   if (!ip_address_in || !ip_address_out || !heading)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogNumeric::%s - invalid handler data (ip_address_in='%p', ip_address_out='%p', heading='%p') on addon '%s'",
-                          __FUNCTION__, ip_address_in, ip_address_out, heading, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogNumeric::%s - invalid handler data (ip_address_in='%p', "
+              "ip_address_out='%p', heading='%p') on addon '%s'",
+              __FUNCTION__, ip_address_in, static_cast<void*>(ip_address_out), heading,
+              addon->ID().c_str());
     return false;
   }
 
@@ -199,8 +201,11 @@ bool Interface_GUIDialogNumeric::show_and_get_number(void* kodiBase, const char*
 
   if (!number_in || !number_out || !heading)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogNumeric::%s - invalid handler data (number_in='%p', number_out='%p', heading='%p') on addon '%s'",
-                          __FUNCTION__, number_in, number_out, heading, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogNumeric::%s - invalid handler data (number_in='%p', "
+              "number_out='%p', heading='%p') on addon '%s'",
+              __FUNCTION__, number_in, static_cast<void*>(number_out), heading,
+              addon->ID().c_str());
     return false;
   }
 
@@ -222,8 +227,10 @@ bool Interface_GUIDialogNumeric::show_and_get_seconds(void* kodiBase, const char
 
   if (!time_in || !time_out || !heading)
   {
-    CLog::Log(LOGERROR, "Interface_GUIDialogNumeric::%s - invalid handler data (time_in='%p', time_out='%p', heading='%p') on addon '%s'",
-                          __FUNCTION__, time_in, time_out, heading, addon->ID().c_str());
+    CLog::Log(LOGERROR,
+              "Interface_GUIDialogNumeric::%s - invalid handler data (time_in='%p', time_out='%p', "
+              "heading='%p') on addon '%s'",
+              __FUNCTION__, time_in, static_cast<void*>(time_out), heading, addon->ID().c_str());
     return false;
   }
 

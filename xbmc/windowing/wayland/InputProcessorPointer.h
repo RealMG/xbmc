@@ -1,30 +1,20 @@
 /*
- *      Copyright (C) 2017 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include <cstdint>
 
 #include <wayland-client-protocol.hpp>
 
-#include "guilib/Geometry.h"
 #include "input/XBMC_keysym.h"
+#include "utils/Geometry.h"
+#include "Seat.h"
 #include "windowing/XBMC_events.h"
 
 namespace KODI
@@ -37,17 +27,24 @@ namespace WAYLAND
 class IInputHandlerPointer
 {
 public:
-  virtual void OnPointerEnter(wayland::pointer_t& pointer, std::uint32_t serial) {};
-  virtual void OnPointerLeave() {};
+  virtual void OnPointerEnter(std::uint32_t seatGlobalName, std::uint32_t serial) {}
+  virtual void OnPointerLeave() {}
   virtual void OnPointerEvent(XBMC_Event& event) = 0;
-  virtual ~IInputHandlerPointer() = default;
+protected:
+  ~IInputHandlerPointer() {}
 };
 
-class CInputProcessorPointer
+class CInputProcessorPointer final : public IRawInputHandlerPointer
 {
 public:
-  CInputProcessorPointer(wayland::pointer_t const& pointer, wayland::surface_t const& surface, IInputHandlerPointer& handler);
+  CInputProcessorPointer(wayland::surface_t const& surface, IInputHandlerPointer& handler);
   void SetCoordinateScale(std::int32_t scale) { m_coordinateScale = scale; }
+
+  void OnPointerEnter(CSeat* seat, std::uint32_t serial, wayland::surface_t surface, double surfaceX, double surfaceY) override;
+  void OnPointerLeave(CSeat* seat, std::uint32_t serial, wayland::surface_t surface) override;
+  void OnPointerMotion(CSeat* seat, std::uint32_t time, double surfaceX, double surfaceY) override;
+  void OnPointerButton(CSeat* seat, std::uint32_t serial, std::uint32_t time, std::uint32_t button, wayland::pointer_button_state state) override;
+  void OnPointerAxis(CSeat* seat, std::uint32_t time, wayland::pointer_axis axis, double value) override;
 
 private:
   CInputProcessorPointer(CInputProcessorPointer const& other) = delete;
@@ -58,7 +55,6 @@ private:
   void SendMouseMotion();
   void SendMouseButton(unsigned char button, bool pressed);
 
-  wayland::pointer_t m_pointer;
   wayland::surface_t m_surface;
   IInputHandlerPointer& m_handler;
 

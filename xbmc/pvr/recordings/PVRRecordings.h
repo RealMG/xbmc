@@ -1,25 +1,15 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include <map>
+#include <memory>
 
 #include "FileItem.h"
 #include "video/VideoDatabase.h"
@@ -34,7 +24,6 @@ namespace PVR
   class CPVRRecordings
   {
   public:
-    CPVRRecordings(void);
     virtual ~CPVRRecordings(void);
 
     /**
@@ -99,20 +88,26 @@ namespace PVR
     typedef PVR_RECORDINGMAP::iterator PVR_RECORDINGMAP_ITR;
     typedef PVR_RECORDINGMAP::const_iterator PVR_RECORDINGMAP_CITR;
 
-    CCriticalSection m_critSection;
-    bool m_bIsUpdating;
+    mutable CCriticalSection m_critSection;
+    bool m_bIsUpdating = false;
     PVR_RECORDINGMAP m_recordings;
-    unsigned int m_iLastId;
-    CVideoDatabase m_database;
-    bool m_bDeletedTVRecordings;
-    bool m_bDeletedRadioRecordings;
-    unsigned int m_iTVRecordings;
-    unsigned int m_iRadioRecordings;
+    unsigned int m_iLastId = 0;
+    std::unique_ptr<CVideoDatabase> m_database;
+    bool m_bDeletedTVRecordings = false;
+    bool m_bDeletedRadioRecordings = false;
+    unsigned int m_iTVRecordings = 0;
+    unsigned int m_iRadioRecordings = 0;
 
     void UpdateFromClients(void);
     std::string TrimSlashes(const std::string &strOrig) const;
     bool IsDirectoryMember(const std::string &strDirectory, const std::string &strEntryDirectory, bool bGrouped) const;
     void GetSubDirectories(const CPVRRecordingsPath &recParentPath, CFileItemList *results);
+
+    /**
+     * @brief Get/Open the video database.
+     * @return A reference to the video database.
+     */
+    CVideoDatabase& GetVideoDatabase();
 
     /**
      * @brief recursively deletes all recordings in the specified directory
@@ -133,6 +128,6 @@ namespace PVR
      * @param count the new playcount or INCREMENT_PLAY_COUNT to denote that the current playcount(s) are to be incremented by one
      * @return true if all playcounts were changed
      */
-    bool ChangeRecordingsPlayCount(const CFileItemPtr &item, int count);    
+    bool ChangeRecordingsPlayCount(const CFileItemPtr &item, int count);
   };
 }

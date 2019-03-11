@@ -1,25 +1,12 @@
 /*
- *      Copyright (C) 2014-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PeripheralBusAddon.h"
-#include "addons/Addon.h"
 #include "addons/AddonManager.h"
 #include "addons/binary-addons/BinaryAddonManager.h"
 #include "messaging/helpers/DialogHelper.h"
@@ -42,7 +29,6 @@ CPeripheralBusAddon::CPeripheralBusAddon(CPeripherals& manager) :
   using namespace ADDON;
 
   CServiceBroker::GetAddonMgr().Events().Subscribe(this, &CPeripheralBusAddon::OnEvent);
-  CServiceBroker::GetAddonMgr().UnloadEvents().Subscribe(this, &CPeripheralBusAddon::OnEvent);
 
   UpdateAddons();
 }
@@ -51,7 +37,6 @@ CPeripheralBusAddon::~CPeripheralBusAddon()
 {
   using namespace ADDON;
 
-  CServiceBroker::GetAddonMgr().UnloadEvents().Unsubscribe(this);
   CServiceBroker::GetAddonMgr().Events().Unsubscribe(this);
 
   // stop everything before destroying any (loaded) addons
@@ -298,27 +283,27 @@ bool CPeripheralBusAddon::SupportsFeature(PeripheralFeature feature) const
   return bSupportsFeature;
 }
 
-int CPeripheralBusAddon::GetPeripheralsWithFeature(PeripheralVector &results, const PeripheralFeature feature) const
+unsigned int CPeripheralBusAddon::GetPeripheralsWithFeature(PeripheralVector &results, const PeripheralFeature feature) const
 {
-  int iReturn(0);
+  unsigned int iReturn = 0;
   CSingleLock lock(m_critSection);
   for (const auto& addon : m_addons)
     iReturn += addon->GetPeripheralsWithFeature(results, feature);
   return iReturn;
 }
 
-size_t CPeripheralBusAddon::GetNumberOfPeripherals(void) const
+unsigned int CPeripheralBusAddon::GetNumberOfPeripherals(void) const
 {
-  size_t iReturn(0);
+  unsigned int iReturn = 0;
   CSingleLock lock(m_critSection);
   for (const auto& addon : m_addons)
     iReturn += addon->GetNumberOfPeripherals();
   return iReturn;
 }
 
-size_t CPeripheralBusAddon::GetNumberOfPeripheralsWithId(const int iVendorId, const int iProductId) const
+unsigned int CPeripheralBusAddon::GetNumberOfPeripheralsWithId(const int iVendorId, const int iProductId) const
 {
-  size_t iReturn(0);
+  unsigned int iReturn = 0;
   CSingleLock lock(m_critSection);
   for (const auto& addon : m_addons)
     iReturn += addon->GetNumberOfPeripheralsWithId(iVendorId, iProductId);
@@ -335,16 +320,19 @@ void CPeripheralBusAddon::GetDirectory(const std::string &strPath, CFileItemList
 void CPeripheralBusAddon::OnEvent(const ADDON::AddonEvent& event)
 {
   if (typeid(event) == typeid(ADDON::AddonEvents::Enabled) ||
-      typeid(event) == typeid(ADDON::AddonEvents::Load))
+      typeid(event) == typeid(ADDON::AddonEvents::ReInstalled))
   {
     if (CServiceBroker::GetAddonMgr().HasType(event.id, ADDON::ADDON_PERIPHERALDLL))
       UpdateAddons();
   }
-  else if (typeid(event) == typeid(ADDON::AddonEvents::Disabled) ||
-           typeid(event) == typeid(ADDON::AddonEvents::Unload))
+  else if (typeid(event) == typeid(ADDON::AddonEvents::Disabled))
   {
     if (CServiceBroker::GetAddonMgr().HasType(event.id, ADDON::ADDON_PERIPHERALDLL))
       UnRegisterAddon(event.id);
+  }
+  else if (typeid(event) == typeid(ADDON::AddonEvents::UnInstalled))
+  {
+    UnRegisterAddon(event.id);
   }
 }
 
@@ -417,7 +405,7 @@ void CPeripheralBusAddon::UpdateAddons(void)
     BinaryAddonBaseList::iterator it = std::find_if(newAddons.begin(), newAddons.end(), GetAddon);
     if (it != newAddons.end())
     {
-      PeripheralAddonPtr newAddon = std::make_shared<CPeripheralAddon>(*it);
+      PeripheralAddonPtr newAddon = std::make_shared<CPeripheralAddon>(*it, m_manager);
       if (newAddon)
       {
         bool bCreated;
@@ -444,8 +432,6 @@ void CPeripheralBusAddon::UpdateAddons(void)
 
 void CPeripheralBusAddon::UnRegisterAddon(const std::string& addonId)
 {
-  CLog::Log(LOGDEBUG, "Add-on bus: Unregistering add-on %s", addonId.c_str());
-
   PeripheralAddonPtr erased;
   auto ErasePeripheralAddon = [&addonId, &erased](const PeripheralAddonPtr& addon)
     {
@@ -463,6 +449,7 @@ void CPeripheralBusAddon::UnRegisterAddon(const std::string& addonId)
 
   if (erased)
   {
+    CLog::Log(LOGDEBUG, "Add-on bus: Unregistered add-on %s", addonId.c_str());
     CSingleExit exit(m_critSection);
     erased->DestroyAddon();
   }

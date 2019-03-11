@@ -1,32 +1,21 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIWindowPVRSearch.h"
 
 #include "ServiceBroker.h"
 #include "dialogs/GUIDialogBusy.h"
-#include "dialogs/GUIDialogProgress.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
 #include "guilib/LocalizeStrings.h"
 #include "input/Key.h"
 #include "messaging/helpers/DialogOKHelper.h"
+#include "threads/IRunnable.h"
 #include "utils/URIUtils.h"
 #include "utils/Variant.h"
 
@@ -34,9 +23,9 @@
 #include "pvr/PVRItem.h"
 #include "pvr/PVRManager.h"
 #include "pvr/addons/PVRClients.h"
-#include "pvr/channels/PVRChannelGroupsContainer.h"
 #include "pvr/dialogs/GUIDialogPVRGuideSearch.h"
 #include "pvr/epg/EpgContainer.h"
+#include "pvr/epg/EpgSearchFilter.h"
 
 using namespace PVR;
 using namespace KODI::MESSAGING;
@@ -98,17 +87,17 @@ bool CGUIWindowPVRSearchBase::OnContextButton(int itemNumber, CONTEXT_BUTTON but
 
 void CGUIWindowPVRSearchBase::SetItemToSearch(const CFileItemPtr &item)
 {
-  m_searchfilter.Reset();
+  m_searchfilter.reset(new CPVREpgSearchFilter(m_bRadio));
 
   if (item->IsUsablePVRRecording())
   {
-    m_searchfilter.SetSearchPhrase(item->GetPVRRecordingInfoTag()->m_strTitle);
+    m_searchfilter->SetSearchPhrase(item->GetPVRRecordingInfoTag()->m_strTitle);
   }
   else
   {
     const CPVREpgInfoTagPtr epgTag(CPVRItem(item).GetEpgInfoTag());
     if (epgTag)
-      m_searchfilter.SetSearchPhrase(epgTag->Title());
+      m_searchfilter->SetSearchPhrase(epgTag->Title());
   }
 
   m_bSearchConfirmed = true;
@@ -126,19 +115,20 @@ void CGUIWindowPVRSearchBase::OnPrepareFileItems(CFileItemList &items)
     bAddSpecialSearchItem = true;
 
     items.Clear();
-    AsyncSearchAction(&items, &m_searchfilter).Execute();
+    AsyncSearchAction(&items, m_searchfilter.get()).Execute();
 
     if (items.IsEmpty())
       HELPERS::ShowOKDialogText(CVariant{284}, // "No results found"
-                                    m_searchfilter.GetSearchTerm());
+                                m_searchfilter->GetSearchTerm());
   }
 
   if (bAddSpecialSearchItem)
   {
-    CFileItemPtr item(new CFileItem("pvr://guide/searchresults/search/", true));
+    CFileItemPtr item(new CFileItem("pvr://guide/searchresults/search/", false));
     item->SetLabel(g_localizeStrings.Get(19140)); // "Search..."
     item->SetLabelPreformatted(true);
     item->SetSpecialSort(SortSpecialOnTop);
+    item->SetIconImage("DefaultTVShows.png");
     items.Add(item);
   }
 }
@@ -193,7 +183,7 @@ bool CGUIWindowPVRSearchBase::OnContextButtonClear(CFileItem *item, CONTEXT_BUTT
     bReturn = true;
 
     m_bSearchConfirmed = false;
-    m_searchfilter.Reset();
+    m_searchfilter.reset();
 
     Refresh(true);
   }
@@ -203,15 +193,15 @@ bool CGUIWindowPVRSearchBase::OnContextButtonClear(CFileItem *item, CONTEXT_BUTT
 
 void CGUIWindowPVRSearchBase::OpenDialogSearch()
 {
-  CGUIDialogPVRGuideSearch* dlgSearch = g_windowManager.GetWindow<CGUIDialogPVRGuideSearch>(WINDOW_DIALOG_PVR_GUIDE_SEARCH);
+  CGUIDialogPVRGuideSearch* dlgSearch = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogPVRGuideSearch>(WINDOW_DIALOG_PVR_GUIDE_SEARCH);
 
   if (!dlgSearch)
     return;
 
-  dlgSearch->SetFilterData(&m_searchfilter);
+  if (!m_searchfilter)
+    m_searchfilter.reset(new CPVREpgSearchFilter(m_bRadio));
 
-  /* Set channel type filter */
-  m_searchfilter.SetIsRadio(m_bRadio);
+  dlgSearch->SetFilterData(m_searchfilter.get());
 
   /* Open dialog window */
   dlgSearch->Open();

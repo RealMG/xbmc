@@ -1,31 +1,23 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
 
-#include "input/joysticks/IInputProvider.h"
+#include "input/joysticks/interfaces/IInputProvider.h"
+#include "input/keyboard/interfaces/IKeyboardInputProvider.h"
+#include "input/mouse/interfaces/IMouseInputProvider.h"
 #include "peripherals/PeripheralTypes.h"
+#include "XBDateTime.h"
 
 class TiXmlDocument;
 class CSetting;
@@ -40,10 +32,21 @@ namespace JOYSTICK
   class IDriverReceiver;
   class IInputHandler;
 }
+
+namespace KEYBOARD
+{
+  class IKeyboardDriverHandler;
+}
+
+namespace MOUSE
+{
+  class IMouseDriverHandler;
+}
 }
 
 namespace PERIPHERALS
 {
+  class CAddonButtonMapping;
   class CGUIDialogPeripheralSettings;
   class CPeripheralBus;
   class CPeripherals;
@@ -55,7 +58,9 @@ namespace PERIPHERALS
     STATE_STANDBY
   } CecStateChange;
 
-  class CPeripheral : public KODI::JOYSTICK::IInputProvider
+  class CPeripheral : public KODI::JOYSTICK::IInputProvider,
+                      public KODI::KEYBOARD::IKeyboardInputProvider,
+                      public KODI::MOUSE::IMouseInputProvider
   {
     friend class CGUIDialogPeripheralSettings;
 
@@ -201,9 +206,23 @@ namespace PERIPHERALS
     virtual void RegisterJoystickDriverHandler(KODI::JOYSTICK::IDriverHandler* handler, bool bPromiscuous) { }
     virtual void UnregisterJoystickDriverHandler(KODI::JOYSTICK::IDriverHandler* handler) { }
 
+    virtual void RegisterKeyboardDriverHandler(KODI::KEYBOARD::IKeyboardDriverHandler* handler, bool bPromiscuous) { }
+    virtual void UnregisterKeyboardDriverHandler(KODI::KEYBOARD::IKeyboardDriverHandler* handler) { }
+
+    virtual void RegisterMouseDriverHandler(KODI::MOUSE::IMouseDriverHandler* handler, bool bPromiscuous) { }
+    virtual void UnregisterMouseDriverHandler(KODI::MOUSE::IMouseDriverHandler* handler) { }
+
     // implementation of IInputProvider
     void RegisterInputHandler(KODI::JOYSTICK::IInputHandler* handler, bool bPromiscuous) override;
     void UnregisterInputHandler(KODI::JOYSTICK::IInputHandler* handler) override;
+
+    // implementation of IKeyboardInputProvider
+    void RegisterKeyboardHandler(KODI::KEYBOARD::IKeyboardInputHandler* handler, bool bPromiscuous) override;
+    void UnregisterKeyboardHandler(KODI::KEYBOARD::IKeyboardInputHandler* handler) override;
+
+    // implementation of IMouseInputProvider
+    void RegisterMouseHandler(KODI::MOUSE::IMouseInputHandler* handler, bool bPromiscuous) override;
+    void UnregisterMouseHandler(KODI::MOUSE::IMouseInputHandler* handler) override;
 
     virtual void RegisterJoystickButtonMapper(KODI::JOYSTICK::IButtonMapper* mapper);
     virtual void UnregisterJoystickButtonMapper(KODI::JOYSTICK::IButtonMapper* mapper);
@@ -211,6 +230,13 @@ namespace PERIPHERALS
     virtual KODI::JOYSTICK::IDriverReceiver* GetDriverReceiver() { return nullptr; }
 
     virtual IKeymap *GetKeymap(const std::string &controllerId) { return nullptr; }
+
+    /*!
+     * \brief Return the last time this peripheral was active
+     *
+     * \return The time of last activation, or invalid if unknown/never active
+     */
+    virtual CDateTime LastActive() { return CDateTime(); }
 
   protected:
     virtual void ClearSettings(void);
@@ -237,6 +263,8 @@ namespace PERIPHERALS
     std::set<std::string>             m_changedSettings;
     CPeripheralBus*                  m_bus;
     std::map<KODI::JOYSTICK::IInputHandler*, std::unique_ptr<KODI::JOYSTICK::IDriverHandler>> m_inputHandlers;
-    std::map<KODI::JOYSTICK::IButtonMapper*, KODI::JOYSTICK::IDriverHandler*> m_buttonMappers;
+    std::map<KODI::KEYBOARD::IKeyboardInputHandler*, std::unique_ptr<KODI::KEYBOARD::IKeyboardDriverHandler>> m_keyboardHandlers;
+    std::map<KODI::MOUSE::IMouseInputHandler*, std::unique_ptr<KODI::MOUSE::IMouseDriverHandler>> m_mouseHandlers;
+    std::map<KODI::JOYSTICK::IButtonMapper*, std::unique_ptr<CAddonButtonMapping>> m_buttonMappers;
   };
 }

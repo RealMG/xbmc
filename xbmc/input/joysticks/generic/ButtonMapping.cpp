@@ -1,32 +1,21 @@
 /*
- *      Copyright (C) 2014-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ButtonMapping.h"
 #include "games/controllers/Controller.h"
 #include "games/controllers/ControllerFeature.h"
 #include "games/controllers/ControllerManager.h"
+#include "input/joysticks/interfaces/IButtonMap.h"
+#include "input/joysticks/interfaces/IButtonMapper.h"
 #include "input/joysticks/DriverPrimitive.h"
-#include "input/joysticks/IButtonMap.h"
-#include "input/joysticks/IButtonMapper.h"
 #include "input/joysticks/JoystickTranslator.h"
 #include "input/joysticks/JoystickUtils.h"
+#include "input/InputTranslator.h"
 #include "input/IKeymap.h"
 #include "input/Key.h"
 #include "threads/SystemClock.h"
@@ -45,10 +34,25 @@ using namespace XbmcThreads;
 #define AXIS_THRESHOLD       0.75f // Axis must exceed this value to be mapped
 #define TRIGGER_DELAY_MS     200   // Delay trigger detection to handle anomalous triggers with non-zero center
 
+// --- CPrimitiveDetector ------------------------------------------------------
+
+CPrimitiveDetector::CPrimitiveDetector(CButtonMapping* buttonMapping) :
+  m_buttonMapping(buttonMapping)
+{
+}
+
+bool CPrimitiveDetector::MapPrimitive(const CDriverPrimitive &primitive)
+{
+  if (primitive.IsValid())
+    return m_buttonMapping->MapPrimitive(primitive);
+
+  return false;
+}
+
 // --- CButtonDetector ---------------------------------------------------------
 
 CButtonDetector::CButtonDetector(CButtonMapping* buttonMapping, unsigned int buttonIndex) :
-  m_buttonMapping(buttonMapping),
+  CPrimitiveDetector(buttonMapping),
   m_buttonIndex(buttonIndex)
 {
 }
@@ -56,13 +60,7 @@ CButtonDetector::CButtonDetector(CButtonMapping* buttonMapping, unsigned int but
 bool CButtonDetector::OnMotion(bool bPressed)
 {
   if (bPressed)
-  {
-    CDriverPrimitive buttonPrimitive(PRIMITIVE_TYPE::BUTTON, m_buttonIndex);
-    if (buttonPrimitive.IsValid())
-    {
-      return m_buttonMapping->MapPrimitive(buttonPrimitive);
-    }
-  }
+    return MapPrimitive(CDriverPrimitive(PRIMITIVE_TYPE::BUTTON, m_buttonIndex));
 
   return false;
 }
@@ -70,27 +68,20 @@ bool CButtonDetector::OnMotion(bool bPressed)
 // --- CHatDetector ------------------------------------------------------------
 
 CHatDetector::CHatDetector(CButtonMapping* buttonMapping, unsigned int hatIndex) :
-  m_buttonMapping(buttonMapping),
+  CPrimitiveDetector(buttonMapping),
   m_hatIndex(hatIndex)
 {
 }
 
 bool CHatDetector::OnMotion(HAT_STATE state)
 {
-  CDriverPrimitive hatPrimitive(m_hatIndex, static_cast<HAT_DIRECTION>(state));
-  if (hatPrimitive.IsValid())
-  {
-    m_buttonMapping->MapPrimitive(hatPrimitive);
-    return true;
-  }
-
-  return false;
+  return MapPrimitive(CDriverPrimitive(m_hatIndex, static_cast<HAT_DIRECTION>(state)));
 }
 
 // --- CAxisDetector -----------------------------------------------------------
 
 CAxisDetector::CAxisDetector(CButtonMapping* buttonMapping, unsigned int axisIndex, const AxisConfiguration& config) :
-  m_buttonMapping(buttonMapping),
+  CPrimitiveDetector(buttonMapping),
   m_axisIndex(axisIndex),
   m_config(config),
   m_state(AXIS_STATE::INACTIVE),
@@ -166,7 +157,7 @@ void CAxisDetector::ProcessMotion()
       }
 
       // Map primitive
-      if (!m_buttonMapping->MapPrimitive(m_activatedPrimitive))
+      if (!MapPrimitive(m_activatedPrimitive))
       {
         if (m_type == AXIS_TYPE::OFFSET)
           CLog::Log(LOGDEBUG, "Mapping offset axis %u failed", m_axisIndex);
@@ -243,6 +234,83 @@ void CAxisDetector::DetectType(float position)
   }
 }
 
+// --- CKeyDetector ---------------------------------------------------------
+
+CKeyDetector::CKeyDetector(CButtonMapping* buttonMapping, XBMCKey keycode) :
+  CPrimitiveDetector(buttonMapping),
+  m_keycode(keycode)
+{
+}
+
+bool CKeyDetector::OnMotion(bool bPressed)
+{
+  if (bPressed)
+    return MapPrimitive(CDriverPrimitive(m_keycode));
+
+  return false;
+}
+
+// --- CMouseButtonDetector ----------------------------------------------------
+
+CMouseButtonDetector::CMouseButtonDetector(CButtonMapping* buttonMapping, MOUSE::BUTTON_ID buttonIndex) :
+  CPrimitiveDetector(buttonMapping),
+  m_buttonIndex(buttonIndex)
+{
+}
+
+bool CMouseButtonDetector::OnMotion(bool bPressed)
+{
+  if (bPressed)
+    return MapPrimitive(CDriverPrimitive(m_buttonIndex));
+
+  return false;
+}
+
+// --- CPointerDetector --------------------------------------------------------
+
+CPointerDetector::CPointerDetector(CButtonMapping* buttonMapping) :
+  CPrimitiveDetector(buttonMapping)
+{
+}
+
+bool CPointerDetector::OnMotion(int x, int y)
+{
+  if (!m_bStarted)
+  {
+    m_bStarted = true;
+    m_startX = x;
+    m_startY = y;
+    m_frameCount = 0;
+  }
+
+  if (m_frameCount++ >= MIN_FRAME_COUNT)
+  {
+    int dx = x - m_startX;
+    int dy = y - m_startY;
+
+    INPUT::INTERCARDINAL_DIRECTION dir = GetPointerDirection(dx, dy);
+
+    CDriverPrimitive primitive(static_cast<RELATIVE_POINTER_DIRECTION>(dir));
+    if (primitive.IsValid())
+    {
+      if (MapPrimitive(primitive))
+        m_bStarted = false;
+    }
+  }
+
+  return true;
+}
+
+KODI::INPUT::INTERCARDINAL_DIRECTION CPointerDetector::GetPointerDirection(int x, int y)
+{
+  using namespace INPUT;
+
+  // Translate from left-handed coordinate system to right-handed coordinate system
+  y *= -1;
+
+  return CInputTranslator::VectorToIntercardinalDirection(static_cast<float>(x), static_cast<float>(y));
+}
+
 // --- CButtonMapping ----------------------------------------------------------
 
 CButtonMapping::CButtonMapping(IButtonMapper* buttonMapper, IButtonMap* buttonMap, IKeymap* keymap) :
@@ -269,7 +337,7 @@ CButtonMapping::CButtonMapping(IButtonMapper* buttonMapper, IButtonMap* buttonMa
     {
       bool bIsSelectAction = false;
 
-      const auto &actions = m_keymap->GetActions(CJoystickUtils::MakeKeyName(feature.Name()));
+      const auto &actions = m_keymap->GetActions(CJoystickUtils::MakeKeyName(feature.Name())).actions;
       if (!actions.empty() && actions.begin()->actionId == ACTION_SELECT_ITEM)
         bIsSelectAction = true;
 
@@ -296,16 +364,25 @@ CButtonMapping::CButtonMapping(IButtonMapper* buttonMapper, IButtonMap* buttonMa
 
 bool CButtonMapping::OnButtonMotion(unsigned int buttonIndex, bool bPressed)
 {
+  if (!m_buttonMapper->AcceptsPrimitive(PRIMITIVE_TYPE::BUTTON))
+    return false;
+
   return GetButton(buttonIndex).OnMotion(bPressed);
 }
 
 bool CButtonMapping::OnHatMotion(unsigned int hatIndex, HAT_STATE state)
 {
+  if (!m_buttonMapper->AcceptsPrimitive(PRIMITIVE_TYPE::HAT))
+    return false;
+
   return GetHat(hatIndex).OnMotion(state);
 }
 
 bool CButtonMapping::OnAxisMotion(unsigned int axisIndex, float position, int center, unsigned int range)
 {
+  if (!m_buttonMapper->AcceptsPrimitive(PRIMITIVE_TYPE::SEMIAXIS))
+    return false;
+
   return GetAxis(axisIndex, position).OnMotion(position);
 }
 
@@ -317,6 +394,38 @@ void CButtonMapping::ProcessAxisMotions(void)
   m_buttonMapper->OnEventFrame(m_buttonMap, IsMapping());
 
   m_frameCount++;
+}
+
+bool CButtonMapping::OnKeyPress(const CKey& key)
+{
+  if (!m_buttonMapper->AcceptsPrimitive(PRIMITIVE_TYPE::KEY))
+    return false;
+
+  return GetKey(static_cast<XBMCKey>(key.GetKeycode())).OnMotion(true);
+}
+
+bool CButtonMapping::OnPosition(int x, int y)
+{
+  if (!m_buttonMapper->AcceptsPrimitive(PRIMITIVE_TYPE::RELATIVE_POINTER))
+    return false;
+
+  return GetPointer().OnMotion(x, y);
+}
+
+bool CButtonMapping::OnButtonPress(MOUSE::BUTTON_ID button)
+{
+  if (!m_buttonMapper->AcceptsPrimitive(PRIMITIVE_TYPE::MOUSE_BUTTON))
+    return false;
+
+  return GetMouseButton(button).OnMotion(true);
+}
+
+void CButtonMapping::OnButtonRelease(MOUSE::BUTTON_ID button)
+{
+  if (!m_buttonMapper->AcceptsPrimitive(PRIMITIVE_TYPE::MOUSE_BUTTON))
+    return;
+
+  GetMouseButton(button).OnMotion(false);
 }
 
 void CButtonMapping::SaveButtonMap()
@@ -422,7 +531,7 @@ CAxisDetector& CButtonMapping::GetAxis(unsigned int axisIndex,
     }
 
     // Report axis
-    CLog::Log(LOGDEBUG, "Axis %u discovered at position %.04f after %lu frames",
+    CLog::Log(LOGDEBUG, "Axis %u discovered at position %.4f after %lu frames",
               axisIndex, position, static_cast<unsigned long>(m_frameCount));
 
     m_axes.insert(std::make_pair(axisIndex, CAxisDetector(this, axisIndex, config)));
@@ -430,6 +539,40 @@ CAxisDetector& CButtonMapping::GetAxis(unsigned int axisIndex,
   }
 
   return itAxis->second;
+}
+
+CKeyDetector& CButtonMapping::GetKey(XBMCKey keycode)
+{
+  auto itKey = m_keys.find(keycode);
+
+  if (itKey == m_keys.end())
+  {
+    m_keys.insert(std::make_pair(keycode, CKeyDetector(this, keycode)));
+    itKey = m_keys.find(keycode);
+  }
+
+  return itKey->second;
+}
+
+CMouseButtonDetector& CButtonMapping::GetMouseButton(MOUSE::BUTTON_ID buttonIndex)
+{
+  auto itButton = m_mouseButtons.find(buttonIndex);
+
+  if (itButton == m_mouseButtons.end())
+  {
+    m_mouseButtons.insert(std::make_pair(buttonIndex, CMouseButtonDetector(this, buttonIndex)));
+    itButton = m_mouseButtons.find(buttonIndex);
+  }
+
+  return itButton->second;
+}
+
+CPointerDetector &CButtonMapping::GetPointer()
+{
+  if (!m_pointer)
+    m_pointer.reset(new CPointerDetector(this));
+
+  return *m_pointer;
 }
 
 void CButtonMapping::OnLateDiscovery(unsigned int axisIndex)

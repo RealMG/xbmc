@@ -33,8 +33,6 @@ set(SOURCES AddonsDirectory.cpp
             MusicDatabaseFile.cpp
             MusicFileDirectory.cpp
             MusicSearchDirectory.cpp
-            NFSDirectory.cpp
-            NFSFile.cpp
             OverrideDirectory.cpp
             OverrideFile.cpp
             PipeFile.cpp
@@ -46,8 +44,6 @@ set(SOURCES AddonsDirectory.cpp
             ResourceDirectory.cpp
             ResourceFile.cpp
             RSSDirectory.cpp
-            SFTPDirectory.cpp
-            SFTPFile.cpp
             ShoutcastFile.cpp
             SmartPlaylistDirectory.cpp
             SourcesDirectory.cpp
@@ -82,7 +78,6 @@ set(HEADERS AddonsDirectory.h
             DirectoryFactory.h
             DirectoryHistory.h
             DllLibCurl.h
-            DllLibNfs.h
             EventsDirectory.h
             FTPDirectory.h
             FTPParse.h
@@ -107,8 +102,6 @@ set(HEADERS AddonsDirectory.h
             MusicDatabaseFile.h
             MusicFileDirectory.h
             MusicSearchDirectory.h
-            NFSDirectory.h
-            NFSFile.h
             OverrideDirectory.h
             OverrideFile.h
             PVRDirectory.h
@@ -120,8 +113,6 @@ set(HEADERS AddonsDirectory.h
             RSSDirectory.h
             ResourceDirectory.h
             ResourceFile.h
-            SFTPDirectory.h
-            SFTPFile.h
             ShoutcastFile.h
             SmartPlaylistDirectory.h
             SourcesDirectory.h
@@ -142,28 +133,12 @@ set(HEADERS AddonsDirectory.h
             ZipFile.h
             ZipManager.h)
 
-if(CORE_SYSTEM_NAME STREQUAL android)
-  list(APPEND SOURCES APKDirectory.cpp
-                      APKFile.cpp
-                      AndroidAppDirectory.cpp
-                      AndroidAppFile.cpp)
-  list(APPEND HEADERS APKDirectory.h
-                      APKFile.h
-                      AndroidAppDirectory.h
-                      AndroidAppFile.h)
-endif()
-
-if(NOT CORE_SYSTEM_NAME STREQUAL windows AND SMBCLIENT_FOUND)
-  list(APPEND SOURCES SMBDirectory.cpp
-                      SMBFile.cpp)
-  list(APPEND HEADERS SMBDirectory.h
-                      SMBFile.h)
-endif()
-
 if(BLURAY_FOUND)
-  list(APPEND SOURCES BlurayDirectory.cpp
+  list(APPEND SOURCES BlurayCallback.cpp
+                      BlurayDirectory.cpp
                       BlurayFile.cpp)
-  list(APPEND HEADERS BlurayDirectory.h
+  list(APPEND HEADERS BlurayCallback.h
+                      BlurayDirectory.h
                       BlurayFile.h)
 endif()
 
@@ -172,6 +147,13 @@ if(ENABLE_OPTICAL)
                       CDDAFile.cpp)
   list(APPEND HEADERS CDDADirectory.h
                       CDDAFile.h)
+endif()
+
+if(NFS_FOUND)
+  list(APPEND SOURCES NFSDirectory.cpp
+                      NFSFile.cpp)
+  list(APPEND HEADERS NFSDirectory.h
+                      NFSFile.h)
 endif()
 
 if(ENABLE_UPNP)

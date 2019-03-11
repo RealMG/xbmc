@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -199,10 +199,6 @@ msgstr "Elérhető"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Nyomjon [B]OK[/B]-ot a leállításhoz"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Nyelv váltása"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -410,7 +406,7 @@ msgstr "Időjárás-szolgáltató beállítása"
 
 msgctxt "#31122"
 msgid "Unwatched TV Shows"
-msgstr "Nem látott TV sorozatok"
+msgstr "Nem látott TV-sorozatok"
 
 msgctxt "#31123"
 msgid "Same director"
@@ -447,6 +443,14 @@ msgstr "Főmenüvel kapcsolatos beállítások: állítsa be a főképernyőt az
 msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Válassz felszín-illusztráció csomagot"
+
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Műsor kiválasztása"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Felbontás kiválasztása"
 
 msgctxt "#31134"
 msgid "Remaining"
@@ -555,3 +559,19 @@ msgstr "Játssz a saját játékaiddal vagy töltsd le a számos játék kiegés
 msgctxt "#31163"
 msgid "Show Fanart background"
 msgstr "Illusztráció háttér megjelenítése"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Válassza ki a profil azonosítását"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Profil neve"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Profil avatar"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Animált háttér"

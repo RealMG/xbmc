@@ -1,32 +1,17 @@
 /*
- *      Copyright (C) 2017 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "InputProcessorKeyboard.h"
-
-#include <unistd.h>
 
 #include <cassert>
 #include <limits>
 
 #include "utils/log.h"
-#include "utils/posix/FileHandle.h"
 
 using namespace KODI::WINDOWING::WAYLAND;
 
@@ -36,73 +21,77 @@ namespace
 constexpr int WL_KEYBOARD_XKB_CODE_OFFSET{8};
 }
 
-CInputProcessorKeyboard::CInputProcessorKeyboard(wayland::keyboard_t const& keyboard, IInputHandlerKeyboard& handler)
-: m_keyboard{keyboard}, m_handler{handler}, m_keyRepeatTimer{std::bind(&CInputProcessorKeyboard::KeyRepeatTimeout, this)}
+CInputProcessorKeyboard::CInputProcessorKeyboard(IInputHandlerKeyboard& handler)
+: m_handler{handler}, m_keyRepeatTimer{std::bind(&CInputProcessorKeyboard::KeyRepeatTimeout, this)}
 {
-  m_keyboard.on_enter() = [this](std::uint32_t, wayland::surface_t, wayland::array_t)
-  {
-    m_handler.OnKeyboardEnter();
-  };
-  m_keyboard.on_leave() = [this](std::uint32_t, wayland::surface_t)
-  {
-    m_keyRepeatTimer.Stop();
-    m_handler.OnKeyboardLeave();
-  };
-  m_keyboard.on_repeat_info() = [this](std::int32_t rate, std::int32_t delay)
-  {
-    CLog::Log(LOGDEBUG, "Key repeat rate: %d cps, delay %d ms", rate, delay);
-    // rate is in characters per second, so convert to msec interval
-    m_keyRepeatInterval = (rate != 0) ? static_cast<int> (1000.0f / rate) : 0;
-    m_keyRepeatDelay = delay;
-  };
-  m_keyboard.on_keymap() = [this](wayland::keyboard_keymap_format format, int fd, std::uint32_t size)
-  {
-    KODI::UTILS::POSIX::CFileHandle fdGuard{fd};
+}
 
-    if (format != wayland::keyboard_keymap_format::xkb_v1)
+void CInputProcessorKeyboard::OnKeyboardKeymap(CSeat* seat, wayland::keyboard_keymap_format format, std::string const &keymap)
+{
+ if (format != wayland::keyboard_keymap_format::xkb_v1)
+  {
+    CLog::Log(LOGWARNING, "Wayland compositor sent keymap in format %u, but we only understand xkbv1 - keyboard input will not work",  static_cast<unsigned int>(format));
+    return;
+  }
+
+  m_keyRepeatTimer.Stop();
+
+  try
+  {
+    if (!m_xkbContext)
     {
-      CLog::Log(LOGWARNING, "Wayland compositor sent keymap in format %u, but we only understand xkbv1 - keyboard input will not work", format);
-      return;
+      // Lazily initialize XkbcommonContext
+      m_xkbContext.reset(new CXkbcommonContext);
     }
 
-    m_keyRepeatTimer.Stop();
-
-    try
-    {
-      if (!m_xkbContext)
-      {
-        // Lazily initialize XkbcommonContext
-        m_xkbContext.reset(new CXkbcommonContext);
-      }
-
-      m_keymap = m_xkbContext->KeymapFromSharedMemory(fd, size);
-    }
-    catch(std::exception const& e)
-    {
-      CLog::Log(LOGERROR, "Could not parse keymap from compositor: %s - continuing without keymap", e.what());
-    }
-  };
-  m_keyboard.on_key() = [this](std::uint32_t, std::uint32_t, std::uint32_t key, wayland::keyboard_key_state state)
+    m_keymap = m_xkbContext->KeymapFromString(keymap);
+  }
+  catch(std::exception const& e)
   {
-    if (!m_keymap)
-    {
-      CLog::Log(LOGWARNING, "Key event for code %u without valid keymap, ignoring", key);
-      return;
-    }
+    CLog::Log(LOGERROR, "Could not parse keymap from compositor: %s - continuing without keymap", e.what());
+  }
+}
 
-    ConvertAndSendKey(key, state == wayland::keyboard_key_state::pressed);
-  };
-  m_keyboard.on_modifiers() = [this](std::uint32_t, std::uint32_t modsDepressed, std::uint32_t modsLatched, std::uint32_t modsLocked, std::uint32_t group)
+void CInputProcessorKeyboard::OnKeyboardEnter(CSeat* seat, std::uint32_t serial, wayland::surface_t surface, wayland::array_t keys)
+{
+  m_handler.OnKeyboardEnter();
+}
+
+void CInputProcessorKeyboard::OnKeyboardLeave(CSeat* seat, std::uint32_t serial, wayland::surface_t surface)
+{
+  m_keyRepeatTimer.Stop();
+  m_handler.OnKeyboardLeave();
+}
+
+void CInputProcessorKeyboard::OnKeyboardKey(CSeat* seat, std::uint32_t serial, std::uint32_t time, std::uint32_t key, wayland::keyboard_key_state state)
+{
+  if (!m_keymap)
   {
-    if (!m_keymap)
-    {
-      CLog::Log(LOGWARNING, "Modifier event without valid keymap, ignoring");
-      return;
-    }
+    CLog::Log(LOGWARNING, "Key event for code %u without valid keymap, ignoring", key);
+    return;
+  }
 
-    m_keyRepeatTimer.Stop();
-    m_keymap->UpdateMask(modsDepressed, modsLatched, modsLocked, group);
-  };
+  ConvertAndSendKey(key, state == wayland::keyboard_key_state::pressed);
+}
+
+void CInputProcessorKeyboard::OnKeyboardModifiers(CSeat* seat, std::uint32_t serial, std::uint32_t modsDepressed, std::uint32_t modsLatched, std::uint32_t modsLocked, std::uint32_t group)
+{
+  if (!m_keymap)
+  {
+    CLog::Log(LOGWARNING, "Modifier event without valid keymap, ignoring");
+    return;
+  }
+
+  m_keyRepeatTimer.Stop();
+  m_keymap->UpdateMask(modsDepressed, modsLatched, modsLocked, group);
+}
+
+void CInputProcessorKeyboard::OnKeyboardRepeatInfo(CSeat* seat, std::int32_t rate, std::int32_t delay)
+{
+  CLog::Log(LOGDEBUG, "Key repeat rate: %d cps, delay %d ms", rate, delay);
+  // rate is in characters per second, so convert to msec interval
+  m_keyRepeatInterval = (rate != 0) ? static_cast<int> (1000.0f / rate) : 0;
+  m_keyRepeatDelay = delay;
 }
 
 void CInputProcessorKeyboard::ConvertAndSendKey(std::uint32_t scancode, bool pressed)

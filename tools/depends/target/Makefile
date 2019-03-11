@@ -6,16 +6,16 @@ endif
 
 DEPENDS = \
 	pcre expat gettext sqlite3 libgpg-error \
-	libgcrypt bzip2 liblzo2 libzip freetype2 fontconfig \
-	openssl gmp nettle gnutls curl \
+	libgcrypt bzip2 libfstrcmp liblzo2 libzip freetype2 fontconfig \
+	openssl gmp nettle gnutls curl nghttp2 \
 	libjpeg-turbo libpng fribidi libass \
-	libxml2 rapidjson libmicrohttpd mysql libffi \
+	libxml2 rapidjson libmicrohttpd mariadb libffi \
 	python27 libshairplay libfmt \
 	libplist libcec libbluray tinyxml \
-	libssh taglib libusb libnfs \
+	taglib libusb libnfs \
 	pythonmodule-pil pythonmodule-pycryptodome pythonmodule-setuptools \
-	libxslt ffmpeg platform crossguid \
-        libdvdread libdvdnav libdvdcss p8-platform
+	libxslt ffmpeg crossguid \
+	libdvdread libdvdnav libdvdcss p8-platform flatbuffers
 
 
 FFMPEG_DEPENDS = gnutls
@@ -27,12 +27,11 @@ else
 endif
 
 ifeq ($(OS),ios)
-  EXCLUDED_DEPENDS = libcec libusb libdvdcss
+  EXCLUDED_DEPENDS = libcec libusb
   ifeq ($(TARGET_PLATFORM),appletvos)
     DEPENDS += boblight
   endif
-else
-  DVDREAD_DEPS = libdvdcss
+  DEPENDS += iosentitlements
 endif
 
 ifeq ($(OS),osx)
@@ -73,10 +72,15 @@ ifeq ($(OS),linux)
   DEPENDS += alsa-lib
   ALSA_LIB = alsa-lib
   CROSSGUID_DEPS = libuuid
+  ifeq ($(TARGET_PLATFORM),$(filter $(TARGET_PLATFORM),raspberry-pi aml gbm))
+    DEPENDS += libxkbcommon libinput libudev libevdev mtdev
+  endif
 endif
 
-ifeq ($(ENABLE_WAYLAND),yes)
+ifeq ($(TARGET_PLATFORM),wayland)
   DEPENDS += wayland waylandpp wayland-protocols
+else ifeq ($(TARGET_PLATFORM),aml)
+  DEPENDS += libamcodec
 endif
 
 .PHONY: $(DEPENDS)
@@ -86,16 +90,15 @@ all: .installed-$(PLATFORM)
 gettext: $(ICONV)
 libgcrypt: libgpg-error
 fontconfig: freetype2 expat $(ICONV)
-curl: openssl
+curl: openssl nghttp2
 libass: fontconfig fribidi libpng freetype2 expat $(ICONV)
 libmicrohttpd: gnutls libgcrypt libgpg-error
 python27: expat gettext libxml2 sqlite3 openssl libffi
 libcdio: $(ICONV)
 libcdio-gplv3: $(ICONV)
-libplist: libxml2 $(ZLIB)
+libplist: $(ZLIB)
 libbluray: $(ICONV) libxml2
-libssh: libgcrypt openssl $(ZLIB)
-mysql: openssl $(ZLIB)
+mariadb: openssl $(ICONV) $(ZLIB)
 libzip: $(ZLIB)
 libpng: $(ZLIB)
 openssl: $(ZLIB)
@@ -106,14 +109,16 @@ pythonmodule-pil: bzip2 $(PYMODULE_DEPS) $(ZLIB) libjpeg-turbo libpng freetype2 
 pythonmodule-setuptools: $(PYMODULE_DEPS) python27
 libxslt: libgcrypt libxml2
 ffmpeg: $(ICONV) $(ZLIB) bzip2 $(FFMPEG_DEPENDS)
-platform: p8-platform
 libcec: p8-platform
 crossguid: $(CROSSGUID_DEPS)
 libdvdnav: libdvdread
-libdvdread: $(DVDREAD_DEPS)
+libdvdread: libdvdcss
 wayland: expat libffi
 waylandpp: wayland $(WAYLANDPP_DEPS)
 dbus: expat
+libinput: mtdev libevdev
+libevdev: libudev
+taglib: $(ZLIB)
 
 .installed-$(PLATFORM): $(DEPENDS)
 	touch $@
@@ -178,3 +183,4 @@ linux-system-libs: linux-system-libs-egl
 	[ -f $(PREFIX)/lib/pkgconfig/sm.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/sm.pc $(PREFIX)/lib/pkgconfig/sm.pc
 	[ -f $(PREFIX)/lib/pkgconfig/xmu.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/xmu.pc $(PREFIX)/lib/pkgconfig/xmu.pc
 	[ -f $(PREFIX)/lib/pkgconfig/libdrm.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/libdrm.pc $(PREFIX)/lib/pkgconfig/libdrm.pc
+	[ -f $(PREFIX)/lib/pkgconfig/xkbcommon.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/xkbcommon.pc $(PREFIX)/lib/pkgconfig/xkbcommon.pc

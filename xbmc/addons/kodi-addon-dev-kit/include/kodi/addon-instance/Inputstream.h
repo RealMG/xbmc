@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 /*
  * Parts with a comment named "internal" are only used inside header and not
@@ -41,7 +30,7 @@ extern "C" {
   /*!
    * @brief InputStream add-on capabilities. All capabilities are set to "false" as default.
    */
-  typedef struct INPUTSTREAM_CAPABILITIES
+  struct INPUTSTREAM_CAPABILITIES
   {
     enum MASKTYPE: uint32_t
     {
@@ -58,17 +47,20 @@ extern "C" {
       SUPPORTS_SEEK = (1 << 3),
 
       /// supports pause
-      SUPPORTS_PAUSE = (1 << 4)
+      SUPPORTS_PAUSE = (1 << 4),
+
+      /// supports interface ITime
+      SUPPORTS_ITIME = (1 << 5)
     };
 
     /// set of supported capabilities
     uint32_t m_mask;
-  } INPUTSTREAM_CAPABILITIES;
+  };
 
   /*!
    * @brief structure of key/value pairs passed to addon on Open()
    */
-  typedef struct INPUTSTREAM
+  struct INPUTSTREAM
   {
     static const unsigned int MAX_INFO_COUNT = 8;
 
@@ -83,22 +75,22 @@ extern "C" {
 
     const char *m_libFolder;
     const char *m_profileFolder;
-  } INPUTSTREAM;
+  };
 
   /*!
    * @brief Array of stream IDs
    */
-  typedef struct INPUTSTREAM_IDS
+  struct INPUTSTREAM_IDS
   {
     static const unsigned int MAX_STREAM_COUNT = 32;
     unsigned int m_streamCount;
     unsigned int m_streamIds[MAX_STREAM_COUNT];
-  } INPUTSTREAM_IDS;
+  };
 
   /*!
    * @brief stream properties
    */
-  typedef struct INPUTSTREAM_INFO
+  struct INPUTSTREAM_INFO
   {
     enum STREAM_TYPE
     {
@@ -128,8 +120,34 @@ extern "C" {
       FLAG_HEARING_IMPAIRED = 0x0080,
       FLAG_VISUAL_IMPAIRED = 0x0100
     };
+
+    enum INPUTSTREAM_COLORSPACE
+    {
+      COLORSPACE_UNKNOWN,
+      COLORSPACE_BT709,
+      COLORSPACE_BT470M,
+      COLORSPACE_BT470BG,
+      COLORSPACE_SMPTE170M,
+      COLORSPACE_SMPTE240M,
+      COLORSPACE_FILM,
+      COLORSPACE_BT2020,
+      COLORSPACE_SMPTE428,
+      COLORSPACE_SMPTEST428_1,
+      COLORSPACE_SMPTE431,
+      COLORSPACE_SMPTE432,
+      COLORSPACE_JEDEC_P22
+    };
+
+    enum INPUTSTREAM_COLORRANGE
+    {
+      COLORRANGE_UNKNOWN,
+      COLORRANGE_LIMITED,
+      COLORRANGE_FULLRANGE
+    };
+
     uint32_t m_flags;
 
+    char m_name[256];                    /*!< @brief (optinal) name of the stream, \0 for default handling */
     char m_codecName[32];                /*!< @brief (required) name of codec according to ffmpeg */
     char m_codecInternalName[32];        /*!< @brief (optional) internal name of codec (selectionstream info) */
     STREAMCODEC_PROFILE m_codecProfile;  /*!< @brief (optional) the profile of the codec */
@@ -138,13 +156,14 @@ extern "C" {
     const uint8_t *m_ExtraData;
     unsigned int m_ExtraSize;
 
-    char m_language[4];                  /*!< @brief ISO 639 3-letter language code (empty string if undefined) */
+    char m_language[64];                 /*!< @brief RFC 5646 language code (empty string if undefined) */
 
     unsigned int m_FpsScale;             /*!< @brief Scale of 1000 and a rate of 29970 will result in 29.97 fps */
     unsigned int m_FpsRate;
     unsigned int m_Height;               /*!< @brief height of the stream reported by the demuxer */
     unsigned int m_Width;                /*!< @brief width of the stream reported by the demuxer */
     float m_Aspect;                      /*!< @brief display aspect of stream */
+
 
     unsigned int m_Channels;             /*!< @brief (required) amount of channels */
     unsigned int m_SampleRate;           /*!< @brief (required) sample rate */
@@ -153,7 +172,20 @@ extern "C" {
     unsigned int m_BlockAlign;
 
     CRYPTO_INFO m_cryptoInfo;
-  } INPUTSTREAM_INFO;
+
+    // new in API version 2.0.8
+    unsigned int m_codecFourCC;          /*!< @brief Codec If available, the fourcc code codec */
+    INPUTSTREAM_COLORSPACE m_colorSpace; /*!< @brief definition of colorspace */
+    INPUTSTREAM_COLORRANGE m_colorRange; /*!< @brief color range if available */
+  };
+
+  struct INPUTSTREAM_TIMES
+  {
+    time_t startTime;
+    double ptsStart;
+    double ptsBegin;
+    double ptsEnd;
+  };
 
   /*!
    * @brief Structure to transfer the methods from xbmc_inputstream_dll.h to XBMC
@@ -200,6 +232,9 @@ extern "C" {
     // IDisplayTime
     int (__cdecl* get_total_time)(const AddonInstance_InputStream* instance);
     int (__cdecl* get_time)(const AddonInstance_InputStream* instance);
+
+    // ITime
+    bool(__cdecl* get_times)(const AddonInstance_InputStream* instance, INPUTSTREAM_TIMES *times);
 
     // IPosTime
     bool (__cdecl* pos_time)(const AddonInstance_InputStream* instance, int ms);
@@ -364,6 +399,12 @@ namespace addon
     virtual int GetTime() { return -1; }
 
     /*!
+    * Get current timing values in PTS scale
+    * @remarks
+    */
+    virtual bool GetTimes(INPUTSTREAM_TIMES &times) { return false; }
+
+    /*!
      * Positions inputstream to playing time given in ms
      * @remarks
      */
@@ -483,6 +524,8 @@ namespace addon
       m_instanceData->toAddon.get_total_time = ADDON_GetTotalTime;
       m_instanceData->toAddon.get_time = ADDON_GetTime;
 
+      m_instanceData->toAddon.get_times = ADDON_GetTimes;
+
       m_instanceData->toAddon.pos_time = ADDON_PosTime;
 
       m_instanceData->toAddon.can_pause_stream = ADDON_CanPauseStream;
@@ -580,6 +623,11 @@ namespace addon
       return instance->toAddon.addonInstance->GetTime();
     }
 
+    // ITime
+    inline static bool ADDON_GetTimes(const AddonInstance_InputStream* instance, INPUTSTREAM_TIMES *times)
+    {
+      return instance->toAddon.addonInstance->GetTimes(*times);
+    }
 
     // IPosTime
     inline static bool ADDON_PosTime(const AddonInstance_InputStream* instance, int ms)

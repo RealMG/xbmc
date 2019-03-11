@@ -1,22 +1,11 @@
-#pragma once
 /*
- *      Copyright (C) 2015 Team Kodi
+ *  Copyright (C) 2015-2018 Team Kodi
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "../AddonBase.h"
 #include "../Filesystem.h"
@@ -547,7 +536,7 @@ namespace addon
             entries[i].properties = nullptr;
         }
         *retEntries = entries;
-        *num_entries = addonEntries.size();
+        *num_entries = static_cast<int>(addonEntries.size());
       }
       return ret;
     }
@@ -578,7 +567,7 @@ namespace addon
                                            int* num_entries,
                                            char* rootpath)
     {
-      std::string cppRootPath; 
+      std::string cppRootPath;
       std::vector<kodi::vfs::CDirEntry> addonEntries;
       bool ret = instance->toAddon.addonInstance->ContainsFiles(*url, addonEntries, cppRootPath);
       if (ret)
@@ -586,7 +575,7 @@ namespace addon
         strncpy(rootpath, cppRootPath.c_str(), ADDON_STANDARD_STRING_LENGTH);
 
         VFSDirEntry* entries = static_cast<VFSDirEntry*>(malloc(sizeof(VFSDirEntry) * addonEntries.size()));
-        for (unsigned int i = 0; i < addonEntries.size(); ++i)
+        for (size_t i = 0; i < addonEntries.size(); ++i)
         {
           entries[i].label = strdup(addonEntries[i].Label().c_str());
           entries[i].title = strdup(addonEntries[i].Title().c_str());
@@ -610,7 +599,7 @@ namespace addon
             entries[i].properties = nullptr;
         }
         *retEntries = entries;
-        *num_entries = addonEntries.size();
+        *num_entries = static_cast<int>(addonEntries.size());
       }
       return ret;
     }

@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <atomic>
 #include <memory>
@@ -53,36 +42,43 @@ namespace PVR
     bool RefreshTimelineItems();
 
     // CPVRChannelNumberInputHandler implementation
+    void GetChannelNumbers(std::vector<std::string>& channelNumbers) override;
     void OnInputDone() override;
 
   protected:
     void UpdateSelectedItemPath() override;
     std::string GetDirectoryPath(void) override { return ""; }
     bool GetDirectory(const std::string &strDirectory, CFileItemList &items) override;
+    void FormatAndSort(CFileItemList &items) override;
+    CFileItemPtr GetCurrentListItem(int offset = 0) override;
 
     void ClearData() override;
 
   private:
-    void Init();
-
     CGUIEPGGridContainer* GetGridControl();
+    void InitEpgGridControl();
 
-    bool SelectPlayingFile(void);
+    bool OnContextButtonBegin();
+    bool OnContextButtonEnd();
+    bool OnContextButtonNow();
+    bool OnContextButtonDate();
 
-    bool OnContextButtonBegin(CFileItem *item, CONTEXT_BUTTON button);
-    bool OnContextButtonEnd(CFileItem *item, CONTEXT_BUTTON button);
-    bool OnContextButtonNow(CFileItem *item, CONTEXT_BUTTON button);
+    bool ShouldNavigateToGridContainer(int iAction);
 
     void StartRefreshTimelineItemsThread();
     void StopRefreshTimelineItemsThread();
 
+    void RefreshView(CGUIMessage& message, bool bInitGridControl);
+
     std::unique_ptr<CPVRRefreshTimelineItemsThread> m_refreshTimelineItemsThread;
     std::atomic_bool m_bRefreshTimelineItems;
+    std::atomic_bool m_bSyncRefreshTimelineItems;
 
     CPVRChannelGroupPtr m_cachedChannelGroup;
     std::unique_ptr<CFileItemList> m_newTimeline;
 
     bool m_bChannelSelectionRestored;
+    std::atomic_bool m_bFirstOpen;
   };
 
   class CGUIWindowPVRTVGuide : public CGUIWindowPVRGuideBase

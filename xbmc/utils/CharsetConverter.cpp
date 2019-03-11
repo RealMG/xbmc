@@ -1,28 +1,20 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "CharsetConverter.h"
 
 #include <algorithm>
 
+#ifndef TARGET_FREEBSD
 #include <iconv.h>
+#elif TARGET_FREEBSD
+#include "/usr/include/iconv.h"
+#endif
 #include <fribidi/fribidi.h>
 
 #include "guilib/LocalizeStrings.h"
@@ -30,7 +22,6 @@
 #include "log.h"
 #include "settings/lib/Setting.h"
 #include "settings/Settings.h"
-#include "system.h"
 #include "utils/StringUtils.h"
 #include "utils/Utf8Utils.h"
 
@@ -51,18 +42,24 @@
   #define UTF16_CHARSET "UTF-16" ENDIAN_SUFFIX
   #define UTF32_CHARSET "UTF-32" ENDIAN_SUFFIX
   #define UTF8_SOURCE "UTF-8"
-  #define WCHAR_CHARSET UTF16_CHARSET 
-#if _DEBUG
+  #define WCHAR_CHARSET UTF16_CHARSET
+#if _DEBUG && !defined(TARGET_WINDOWS_STORE)
   #pragma comment(lib, "libiconvd.lib")
 #else
   #pragma comment(lib, "libiconv.lib")
 #endif
+#elif defined(TARGET_FREEBSD)
+  #define WCHAR_IS_UCS_4 1
+  #define UTF16_CHARSET "UTF-16" ENDIAN_SUFFIX
+  #define UTF32_CHARSET "UTF-32" ENDIAN_SUFFIX
+  #define UTF8_SOURCE "UTF-8"
+  #define WCHAR_CHARSET UTF32_CHARSET
 #elif defined(TARGET_ANDROID)
   #define WCHAR_IS_UCS_4 1
   #define UTF16_CHARSET "UTF-16" ENDIAN_SUFFIX
   #define UTF32_CHARSET "UTF-32" ENDIAN_SUFFIX
   #define UTF8_SOURCE "UTF-8"
-  #define WCHAR_CHARSET UTF32_CHARSET 
+  #define WCHAR_CHARSET UTF32_CHARSET
 #else
   #define UTF16_CHARSET "UTF-16" ENDIAN_SUFFIX
   #define UTF32_CHARSET "UTF-32" ENDIAN_SUFFIX
@@ -85,9 +82,8 @@ enum SpecialCharset
 {
   NotSpecialCharset = 0,
   SystemCharset,
-  UserCharset /* locale.charset */, 
+  UserCharset /* locale.charset */,
   SubtitleCharset /* subtitles.charset */,
-  AsciiCharset
 };
 
 class CConverterType : public CCriticalSection
@@ -191,7 +187,7 @@ iconv_t CConverterType::GetConverter(CSingleLock& converterLock)
       m_targetCharset = ResolveSpecialCharset(m_targetSpecialCharset);
 
     m_iconv = iconv_open(m_targetCharset.c_str(), m_sourceCharset.c_str());
-    
+
     if (m_iconv == NO_ICONV)
       CLog::Log(LOGERROR, "%s: iconv_open() for \"%s\" -> \"%s\" failed, errno = %d (%s)",
                 __FUNCTION__, m_sourceCharset.c_str(), m_targetCharset.c_str(), errno, strerror(errno));
@@ -245,8 +241,6 @@ std::string CConverterType::ResolveSpecialCharset(enum SpecialCharset charset)
     return g_langInfo.GetGuiCharSet();
   case SubtitleCharset:
     return g_langInfo.GetSubtitleCharSet();
-  case AsciiCharset:
-    return "ASCII//TRANSLIT";
   case NotSpecialCharset:
   default:
     return "UTF-8"; /* dummy value */
@@ -272,18 +266,16 @@ enum StdConversionType /* Keep it in sync with CCharsetConverter::CInnerConverte
   Utf8ToSystem,
   SystemToUtf8,
   Ucs2CharsetToUtf8,
-  WtoAscii,
-  Utf8toAscii,
   NumberOfStdConversionTypes /* Dummy sentinel entry */
 };
 
-/* We don't want to pollute header file with many additional includes and definitions, so put 
+/* We don't want to pollute header file with many additional includes and definitions, so put
    here all staff that require usage of types defined in this file or in additional headers */
 class CCharsetConverter::CInnerConverter
 {
 public:
   static bool logicalToVisualBiDi(const std::u32string& stringSrc, std::u32string& stringDst, FriBidiCharType base = FRIBIDI_TYPE_LTR, const bool failOnBadString = false);
-  
+
   template<class INPUT,class OUTPUT>
   static bool stdConvert(StdConversionType convertType, const INPUT& strSource, OUTPUT& strDest, bool failOnInvalidChar = false);
   template<class INPUT,class OUTPUT>
@@ -317,9 +309,7 @@ CConverterType CCharsetConverter::CInnerConverter::m_stdConversion[NumberOfStdCo
   /* Utf8toW */             CConverterType(UTF8_SOURCE,     WCHAR_CHARSET),
   /* Utf8ToSystem */        CConverterType(UTF8_SOURCE,     SystemCharset),
   /* SystemToUtf8 */        CConverterType(SystemCharset,   UTF8_SOURCE),
-  /* Ucs2CharsetToUtf8 */   CConverterType("UCS-2LE",       "UTF-8", CCharsetConverter::m_Utf8CharMaxSize),
-  /* WtoAscii */            CConverterType(WCHAR_CHARSET,   AsciiCharset),
-  /* Utf8toAscii */         CConverterType(UTF8_SOURCE,     AsciiCharset),
+  /* Ucs2CharsetToUtf8 */   CConverterType("UCS-2LE",       "UTF-8", CCharsetConverter::m_Utf8CharMaxSize)
 };
 
 CCriticalSection CCharsetConverter::CInnerConverter::m_critSectionFriBiDi;
@@ -500,7 +490,7 @@ bool CCharsetConverter::CInnerConverter::logicalToVisualBiDi(const std::u32strin
       lineEnd = srcLen;
     else
       lineEnd++; // include '\n'
-    
+
     const size_t lineLen = lineEnd - lineStart;
 
     FriBidiChar* visual = (FriBidiChar*) malloc((lineLen + 1) * sizeof(FriBidiChar));
@@ -619,8 +609,8 @@ std::string CCharsetConverter::getCharsetNameByLabel(const std::string& charsetL
 
 void CCharsetConverter::reset(void)
 {
-  for (int i = 0; i < NumberOfStdConversionTypes; i++)
-    CInnerConverter::m_stdConversion[i].Reset();
+  for (CConverterType& conversion : CInnerConverter::m_stdConversion)
+    conversion.Reset();
 }
 
 void CCharsetConverter::resetSystemCharset(void)
@@ -710,7 +700,7 @@ bool CCharsetConverter::wToUtf32(const std::wstring& wStringSrc, std::u32string&
 
 // The bVisualBiDiFlip forces a flip of characters for hebrew/arabic languages, only set to false if the flipping
 // of the string is already made or the string is not displayed in the GUI
-bool CCharsetConverter::utf8ToW(const std::string& utf8StringSrc, std::wstring& wStringDst, bool bVisualBiDiFlip /*= true*/, 
+bool CCharsetConverter::utf8ToW(const std::string& utf8StringSrc, std::wstring& wStringDst, bool bVisualBiDiFlip /*= true*/,
                                 bool forceLTRReadingOrder /*= false*/, bool failOnBadChar /*= false*/)
 {
   // Try to flip hebrew/arabic characters, if any
@@ -726,13 +716,8 @@ bool CCharsetConverter::utf8ToW(const std::string& utf8StringSrc, std::wstring& 
 
     return CInnerConverter::stdConvert(Utf32ToW, utf32flipped, wStringDst, failOnBadChar) && bidiResult;
   }
-  
-  return CInnerConverter::stdConvert(Utf8toW, utf8StringSrc, wStringDst, failOnBadChar);
-}
 
-bool CCharsetConverter::utf8ToASCII(const std::string& utf8StringSrc, std::string& asciiStringDst, bool failOnBadChar)
-{
-  return CInnerConverter::stdConvert(Utf8toAscii, utf8StringSrc, asciiStringDst, failOnBadChar);
+  return CInnerConverter::stdConvert(Utf8toW, utf8StringSrc, wStringDst, failOnBadChar);
 }
 
 bool CCharsetConverter::subtitleCharsetToUtf8(const std::string& stringSrc, std::string& utf8StringDst)
@@ -770,7 +755,7 @@ bool CCharsetConverter::ToUtf8(const std::string& strSourceCharset, const std::s
     utf8StringDst = stringSrc;
     return true;
   }
-  
+
   return CInnerConverter::customConvert(strSourceCharset, "UTF-8", stringSrc, utf8StringDst, failOnBadChar);
 }
 
@@ -815,11 +800,6 @@ bool CCharsetConverter::unknownToUTF8(const std::string& stringSrc, std::string&
 bool CCharsetConverter::wToUTF8(const std::wstring& wStringSrc, std::string& utf8StringDst, bool failOnBadChar /*= false*/)
 {
   return CInnerConverter::stdConvert(WtoUtf8, wStringSrc, utf8StringDst, failOnBadChar);
-}
-
-bool CCharsetConverter::wToASCII(const std::wstring& wStringSrc, std::string& asciiStringDst, bool failOnBadChar)
-{
-  return CInnerConverter::stdConvert(WtoAscii, wStringSrc, asciiStringDst, failOnBadChar);
 }
 
 bool CCharsetConverter::utf16BEtoUTF8(const std::u16string& utf16StringSrc, std::string& utf8StringDst)

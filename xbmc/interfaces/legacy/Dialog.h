@@ -1,21 +1,9 @@
  /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
@@ -29,7 +17,6 @@
 #include "ListItem.h"
 #include "dialogs/GUIDialogProgress.h"
 #include "dialogs/GUIDialogExtendedProgressBar.h"
-#include "dialogs/GUIDialogBusy.h"
 
 #define INPUT_ALPHANUM        0
 #define INPUT_NUMERIC         1
@@ -60,8 +47,7 @@ namespace XBMCAddon
     public:
 
       inline Dialog() = default;
-      //! @todo Switch to 'override' usage once 14.04 (Trusty) hits EOL. swig <3.0 doesn't understand C++11
-      virtual ~Dialog();
+      ~Dialog() override;
 
 #ifdef DOXYGEN_SHOULD_USE_THIS
       ///
@@ -99,7 +85,7 @@ namespace XBMCAddon
       ///
       yesno(...);
 #else
-      bool yesno(const String& heading, const String& line1, 
+      bool yesno(const String& heading, const String& line1,
                  const String& line2 = emptyString,
                  const String& line3 = emptyString,
                  const String& nolabel = emptyString,
@@ -280,20 +266,22 @@ namespace XBMCAddon
 #ifdef DOXYGEN_SHOULD_USE_THIS
       ///
       /// \ingroup python_Dialog
-      /// \python_func{ xbmcgui.Dialog().textviewer(heading, text) }
+      /// \python_func{ xbmcgui.Dialog().textviewer(heading, text, usemono) }
       ///------------------------------------------------------------------------
       ///
-      /// **TextViewe dialog**
+      /// **TextViewer dialog**
       ///
       /// The text viewer dialog can be used to display descriptions, help texts
       /// or other larger texts.
       ///
       /// @param heading       string or unicode - dialog heading.
       /// @param text          string or unicode - text.
+      /// @param usemono       [opt] bool - use monospace font
       ///
       ///
       ///------------------------------------------------------------------------
       /// @python_v16 New function added.
+      /// @python_v18 New optional param added **usemono**.
       ///
       /// **Example:**
       /// ~~~~~~~~~~~~~{.py}
@@ -305,7 +293,7 @@ namespace XBMCAddon
       ///
       textviewer(...);
 #else
-      void textviewer(const String& heading, const String& text);
+      void textviewer(const String& heading, const String& text, bool usemono = false);
 #endif
 
 #ifdef DOXYGEN_SHOULD_USE_THIS
@@ -330,7 +318,17 @@ namespace XBMCAddon
       /// |   2   | ShowAndGetImage                 |
       /// |   3   | ShowAndGetWriteableDirectory    |
       /// @param heading        string or unicode - dialog heading.
-      /// @param shares         string or unicode - from [sources.xml](http://kodi.wiki/view/Sources.xml) . (i.e. 'myprograms')
+      /// @param shares         string or unicode - from [sources.xml](http://kodi.wiki/view/Sources.xml)
+      /// | Param          | Name                                         |
+      /// |:--------------:|:---------------------------------------------|
+      /// |   "programs"   | list program addons
+      /// |   "video"      | list video sources
+      /// |   "music"      | list music sources
+      /// |   "pictures"   | list picture sources
+      /// |   "files"      | list file sources (added through filemanager)
+      /// |   "games"      | list game sources
+      /// |   "local"      | list local drives
+      /// |   ""           | list local drives and network shares
       /// @param mask           [opt] string or unicode - '|' separated file mask. (i.e. '.jpg|.png')
       /// @param useThumbs      [opt] boolean - if True autoswitch to Thumb view if files exist.
       /// @param treatAsFolder  [opt] boolean - if True playlists and archives act as folders.
@@ -346,6 +344,7 @@ namespace XBMCAddon
       ///
       ///
       ///------------------------------------------------------------------------
+      /// @python_v18 New option added to browse network and/or local drives.
       ///
       /// **Example:**
       /// ~~~~~~~~~~~~~{.py}
@@ -385,7 +384,17 @@ namespace XBMCAddon
       /// |   2   | ShowAndGetImage
       /// |   3   | ShowAndGetWriteableDirectory
       /// @param heading        string or unicode - dialog heading.
-      /// @param shares         string or unicode - from [sources.xml](http://kodi.wiki/view/Sources.xml) . (i.e. 'myprograms')
+      /// @param shares         string or unicode - from [sources.xml](http://kodi.wiki/view/Sources.xml)
+      /// | Param          | Name                                         |
+      /// |:--------------:|:---------------------------------------------|
+      /// |   "programs"   | list program addons
+      /// |   "video"      | list video sources
+      /// |   "music"      | list music sources
+      /// |   "pictures"   | list picture sources
+      /// |   "files"      | list file sources (added through filemanager)
+      /// |   "games"      | list game sources
+      /// |   "local"      | list local drives
+      /// |   ""           | list local drives and network shares
       /// @param mask           [opt] string or unicode - '|' separated file mask. (i.e. '.jpg|.png')
       /// @param useThumbs      [opt] boolean - if True autoswitch to Thumb view if files exist (default=false).
       /// @param treatAsFolder  [opt] boolean - if True playlists and archives act as folders (default=false).
@@ -397,6 +406,7 @@ namespace XBMCAddon
       ///
       ///
       ///------------------------------------------------------------------------
+      /// @python_v18 New option added to browse network and/or local drives.
       ///
       /// **Example:**
       /// ~~~~~~~~~~~~~{.py}
@@ -409,8 +419,8 @@ namespace XBMCAddon
       browseSingle(...);
 #else
       String browseSingle(int type, const String& heading, const String& shares,
-                          const String& mask = emptyString, bool useThumbs = false, 
-                          bool treatAsFolder = false, 
+                          const String& mask = emptyString, bool useThumbs = false,
+                          bool treatAsFolder = false,
                           const String& defaultt = emptyString );
 #endif
 
@@ -434,7 +444,17 @@ namespace XBMCAddon
       /// |   1   | ShowAndGetFile
       /// |   2   | ShowAndGetImage
       /// @param heading        string or unicode - dialog heading.
-      /// @param shares         string or unicode - from [sources.xml](http://kodi.wiki/view/Sources.xml) . (i.e. 'myprograms')
+      /// @param shares         string or unicode - from [sources.xml](http://kodi.wiki/view/Sources.xml)
+      /// | Param          | Name                                         |
+      /// |:--------------:|:---------------------------------------------|
+      /// |   "programs"   | list program addons
+      /// |   "video"      | list video sources
+      /// |   "music"      | list music sources
+      /// |   "pictures"   | list picture sources
+      /// |   "files"      | list file sources (added through filemanager)
+      /// |   "games"      | list game sources
+      /// |   "local"      | list local drives
+      /// |   ""           | list local drives and network shares
       /// @param mask           [opt] string or unicode - '|' separated file mask. (i.e. '.jpg|.png')
       /// @param useThumbs      [opt] boolean - if True autoswitch to Thumb view if files exist (default=false).
       /// @param treatAsFolder  [opt] boolean - if True playlists and archives act as folders (default=false).
@@ -444,6 +464,7 @@ namespace XBMCAddon
       ///
       ///
       ///------------------------------------------------------------------------
+      /// @python_v18 New option added to browse network and/or local drives.
       ///
       /// **Example:**
       /// ~~~~~~~~~~~~~{.py}
@@ -456,8 +477,8 @@ namespace XBMCAddon
       browseMultiple(...);
 #else
       std::vector<String> browseMultiple(int type, const String& heading, const String& shares,
-                                         const String& mask = emptyString, bool useThumbs = false, 
-                                         bool treatAsFolder = false, 
+                                         const String& mask = emptyString, bool useThumbs = false,
+                                         bool treatAsFolder = false,
                                          const String& defaultt = emptyString );
 #endif
 
@@ -597,18 +618,16 @@ namespace XBMCAddon
     ///
     class DialogProgress : public AddonClass
     {
-      CGUIDialogProgress* dlg;
-      bool                open;
+      CGUIDialogProgress* dlg = nullptr;
+      bool                open = false;
 
     protected:
-      //! @todo Switch to 'override' usage once 14.04 (Trusty) hits EOL. swig <3.0 doesn't understand C++11
-      virtual void deallocating();
+      void deallocating() override;
 
     public:
 
-      DialogProgress() : dlg(NULL), open(false) {}
-      //! @todo Switch to 'override' usage once 14.04 (Trusty) hits EOL. swig <3.0 doesn't understand C++11
-      virtual ~DialogProgress();
+      DialogProgress() = default;
+      ~DialogProgress() override;
 
 #ifdef DOXYGEN_SHOULD_USE_THIS
       ///
@@ -639,7 +658,7 @@ namespace XBMCAddon
       ///
       create(...);
 #else
-      void create(const String& heading, const String& line1 = emptyString, 
+      void create(const String& heading, const String& line1 = emptyString,
                   const String& line2 = emptyString,
                   const String& line3 = emptyString);
 #endif
@@ -671,7 +690,7 @@ namespace XBMCAddon
       ///
       update(...);
 #else
-      void update(int percent, const String& line1 = emptyString, 
+      void update(int percent, const String& line1 = emptyString,
                   const String& line2 = emptyString,
                   const String& line3 = emptyString);
 #endif
@@ -734,22 +753,18 @@ namespace XBMCAddon
     /// @brief <b>Kodi's busy dialog class</b>
     ///
     ///-----------------------------------------------------------------------
-    /// @python_v17 New class added.
+    /// @python_v18 removed, usage results in nop!
     ///
     class DialogBusy : public AddonClass
     {
-      CGUIDialogBusy* dlg;
-      bool open;
 
     protected:
-      //! @todo Switch to 'override' usage once 14.04 (Trusty) hits EOL. swig <3.0 doesn't understand C++11
-      virtual void deallocating();
+      void deallocating() override;
 
     public:
 
-      DialogBusy() : dlg(NULL), open(false) {}
-      //! @todo Switch to 'override' usage once 14.04 (Trusty) hits EOL. swig <3.0 doesn't understand C++11
-      virtual ~DialogBusy();
+      DialogBusy() {}
+      ~DialogBusy() override;
 
 #ifdef DOXYGEN_SHOULD_USE_THIS
       ///
@@ -763,7 +778,7 @@ namespace XBMCAddon
       ///
       ///
       ///------------------------------------------------------------------------
-      /// @python_v17 New method added
+      /// @python_v18 removed, usage results in nop!
       ///
       /// **Example:**
       /// ~~~~~~~~~~~~~{.py}
@@ -792,7 +807,7 @@ namespace XBMCAddon
       ///
       ///
       ///------------------------------------------------------------------------
-      /// @python_v17 New method added
+      /// @python_v18 removed, usage results in nop!
       ///
       update(...);
 #else
@@ -809,7 +824,7 @@ namespace XBMCAddon
       ///
       ///
       ///------------------------------------------------------------------------
-      /// @python_v17 New method added
+      /// @python_v18 removed, usage results in nop!
       ///
       close(...);
 #else
@@ -828,7 +843,7 @@ namespace XBMCAddon
       ///
       ///
       ///------------------------------------------------------------------------
-      /// @python_v17 New method added
+      /// @python_v18 removed, usage results in nop!
       ///
       iscanceled(...);
 #else
@@ -847,19 +862,17 @@ namespace XBMCAddon
     ///
     class DialogProgressBG : public AddonClass
     {
-      CGUIDialogExtendedProgressBar* dlg;
-      CGUIDialogProgressBarHandle* handle;
-      bool open;
+      CGUIDialogExtendedProgressBar* dlg = nullptr;
+      CGUIDialogProgressBarHandle* handle = nullptr;
+      bool open = false;
 
     protected:
-      //! @todo Switch to 'override' usage once 14.04 (Trusty) hits EOL. swig <3.0 doesn't understand C++11
-      virtual void deallocating();
+      void deallocating() override;
 
     public:
 
-      DialogProgressBG() : dlg(NULL), handle(NULL), open(false) {}
-      //! @todo Switch to 'override' usage once 14.04 (Trusty) hits EOL. swig <3.0 doesn't understand C++11
-      virtual ~DialogProgressBG();
+      DialogProgressBG() = default;
+      ~DialogProgressBG() override;
 
 #ifdef DOXYGEN_SHOULD_USE_THIS
       ///

@@ -1,35 +1,24 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-
-#include "system.h"
 
 #include "WinEventsSDL.h"
 #include "Application.h"
+#include "AppInboundProtocol.h"
+#include "ServiceBroker.h"
 #include "messaging/ApplicationMessenger.h"
 #include "GUIUserMessages.h"
 #include "settings/DisplaySettings.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
+#include "input/mouse/MouseStat.h"
 #include "input/Key.h"
 #include "input/InputManager.h"
-#include "input/MouseStat.h"
-#include "windowing/WindowingFactory.h"
+#include "windowing/WinSystem.h"
 #include "platform/darwin/osx/CocoaInterface.h"
 #include "ServiceBroker.h"
 
@@ -53,13 +42,18 @@ bool CWinEventsSDL::MessagePump()
         //If the window was inconified or restored
         if( event.active.state & SDL_APPACTIVE )
         {
-          g_application.SetRenderGUI(event.active.gain != 0);
-          g_Windowing.NotifyAppActiveChange(g_application.GetRenderGUI());
+          std::shared_ptr<CAppInboundProtocol> appPort = CServiceBroker::GetAppPort();
+          if (appPort)
+            appPort->SetRenderGUI(event.active.gain != 0);
+          CServiceBroker::GetWinSystem()->NotifyAppActiveChange(g_application.GetRenderGUI());
         }
         else if (event.active.state & SDL_APPINPUTFOCUS)
         {
           g_application.m_AppFocused = event.active.gain != 0;
-          g_Windowing.NotifyAppFocusChange(g_application.m_AppFocused);
+          std::shared_ptr<CAppInboundProtocol> appPort = CServiceBroker::GetAppPort();
+          if (appPort && g_application.m_AppFocused)
+            appPort->SetRenderGUI(g_application.m_AppFocused);
+          CServiceBroker::GetWinSystem()->NotifyAppFocusChange(g_application.m_AppFocused);
         }
         break;
 
@@ -87,7 +81,9 @@ bool CWinEventsSDL::MessagePump()
 
         // don't handle any more messages in the queue until we've handled keydown,
         // if a keyup is in the queue it will reset the keypress before it is handled.
-        ret |= g_application.OnEvent(newEvent);
+        std::shared_ptr<CAppInboundProtocol> appPort = CServiceBroker::GetAppPort();
+        if (appPort)
+          ret |= appPort->OnEvent(newEvent);
         break;
       }
 
@@ -100,7 +96,9 @@ bool CWinEventsSDL::MessagePump()
         newEvent.key.keysym.mod =(XBMCMod) event.key.keysym.mod;
         newEvent.key.keysym.unicode = event.key.keysym.unicode;
 
-        ret |= g_application.OnEvent(newEvent);
+        std::shared_ptr<CAppInboundProtocol> appPort = CServiceBroker::GetAppPort();
+        if (appPort)
+          ret |= appPort->OnEvent(newEvent);
         break;
       }
 
@@ -112,7 +110,9 @@ bool CWinEventsSDL::MessagePump()
         newEvent.button.x = event.button.x;
         newEvent.button.y = event.button.y;
 
-        ret |= g_application.OnEvent(newEvent);
+        std::shared_ptr<CAppInboundProtocol> appPort = CServiceBroker::GetAppPort();
+        if (appPort)
+          ret |= appPort->OnEvent(newEvent);
         break;
       }
 
@@ -124,7 +124,9 @@ bool CWinEventsSDL::MessagePump()
         newEvent.button.x = event.button.x;
         newEvent.button.y = event.button.y;
 
-        ret |= g_application.OnEvent(newEvent);
+        std::shared_ptr<CAppInboundProtocol> appPort = CServiceBroker::GetAppPort();
+        if (appPort)
+          ret |= appPort->OnEvent(newEvent);
         break;
       }
 
@@ -143,7 +145,9 @@ bool CWinEventsSDL::MessagePump()
         newEvent.motion.x = event.motion.x;
         newEvent.motion.y = event.motion.y;
 
-        ret |= g_application.OnEvent(newEvent);
+        std::shared_ptr<CAppInboundProtocol> appPort = CServiceBroker::GetAppPort();
+        if (appPort)
+          ret |= appPort->OnEvent(newEvent);
         break;
       }
       case SDL_VIDEORESIZE:
@@ -151,9 +155,8 @@ bool CWinEventsSDL::MessagePump()
         // Under newer osx versions sdl is so fucked up that it even fires resize events
         // that exceed the screen size (maybe some HiDP incompatibility in old SDL?)
         // ensure to ignore those events because it will mess with windowed size
-        int RES_SCREEN = g_Windowing.DesktopResolution(g_Windowing.GetCurrentScreen());
-        if((event.resize.w > CDisplaySettings::GetInstance().GetResolutionInfo(RES_SCREEN).iWidth) ||
-           (event.resize.h > CDisplaySettings::GetInstance().GetResolutionInfo(RES_SCREEN).iHeight))
+        if((event.resize.w > CDisplaySettings::GetInstance().GetResolutionInfo(RES_DESKTOP).iWidth) ||
+           (event.resize.h > CDisplaySettings::GetInstance().GetResolutionInfo(RES_DESKTOP).iHeight))
         {
           break;
         }
@@ -161,8 +164,10 @@ bool CWinEventsSDL::MessagePump()
         newEvent.type = XBMC_VIDEORESIZE;
         newEvent.resize.w = event.resize.w;
         newEvent.resize.h = event.resize.h;
-        ret |= g_application.OnEvent(newEvent);
-        g_windowManager.MarkDirty();
+        std::shared_ptr<CAppInboundProtocol> appPort = CServiceBroker::GetAppPort();
+        if (appPort)
+          ret |= appPort->OnEvent(newEvent);
+        CServiceBroker::GetGUI()->GetWindowManager().MarkDirty();
         break;
       }
       case SDL_USEREVENT:
@@ -170,11 +175,13 @@ bool CWinEventsSDL::MessagePump()
         XBMC_Event newEvent;
         newEvent.type = XBMC_USEREVENT;
         newEvent.user.code = event.user.code;
-        ret |= g_application.OnEvent(newEvent);
+        std::shared_ptr<CAppInboundProtocol> appPort = CServiceBroker::GetAppPort();
+        if (appPort)
+          ret |= appPort->OnEvent(newEvent);
         break;
       }
       case SDL_VIDEOEXPOSE:
-        g_windowManager.MarkDirty();
+        CServiceBroker::GetGUI()->GetWindowManager().MarkDirty();
         break;
     }
     memset(&event, 0, sizeof(SDL_Event));
@@ -217,7 +224,7 @@ bool CWinEventsSDL::ProcessOSXShortcuts(SDL_Event& event)
       return true;
 
     case SDLK_h: // CMD-h to hide
-      g_Windowing.Hide();
+      CServiceBroker::GetWinSystem()->Hide();
       return true;
 
     case SDLK_m: // CMD-m to minimize

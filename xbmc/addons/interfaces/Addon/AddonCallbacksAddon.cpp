@@ -1,22 +1,10 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      Copyright (C) 2015-2016 Team KODI
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 #include <vector>
 #include "Application.h"
@@ -31,10 +19,10 @@
 #include "guilib/LocalizeStrings.h"
 #include "FileItem.h"
 #include "network/Network.h"
+#include "ServiceBroker.h"
 #include "utils/CharsetConverter.h"
 #include "utils/StringUtils.h"
 #include "utils/XMLUtils.h"
-#include "URL.h"
 #include "addons/kodi-addon-dev-kit/include/kodi/kodi_vfs_types.h"
 #include "filesystem/SpecialProtocol.h"
 
@@ -181,7 +169,7 @@ void CAddonCallbacksAddon::QueueNotification(void *addonData, const queue_msg_t 
 
 bool CAddonCallbacksAddon::WakeOnLan(const char *mac)
 {
-  return g_application.getNetwork().WakeOnLan(mac);
+  return CServiceBroker::GetNetwork().WakeOnLan(mac);
 }
 
 bool CAddonCallbacksAddon::GetAddonSetting(void *addonData, const char *strSettingName, void *settingValue)
@@ -571,7 +559,7 @@ bool CAddonCallbacksAddon::CanOpenDirectory(const void* addonData, const char* s
     return false;
 
   CFileItemList items;
-  return CDirectory::GetDirectory(strURL, items);
+  return CDirectory::GetDirectory(strURL, items, "", DIR_FLAG_DEFAULTS);
 }
 
 bool CAddonCallbacksAddon::CreateDirectory(const void* addonData, const char *strPath)
@@ -600,7 +588,7 @@ bool CAddonCallbacksAddon::RemoveDirectory(const void* addonData, const char *st
 
   // Empty directory
   CFileItemList fileItems;
-  CDirectory::GetDirectory(strPath, fileItems);
+  CDirectory::GetDirectory(strPath, fileItems, "", DIR_FLAG_DEFAULTS);
   for (int i = 0; i < fileItems.Size(); ++i)
     CFile::Delete(fileItems.Get(i)->GetPath());
 

@@ -1,5 +1,5 @@
 include ../../Makefile.include
-DEPS= ../../Makefile.include 01-gcrypt-android-select.patch 02-fix-armv7-neon.patch 03-remove-cipher-gcm-armv8.patch Makefile
+DEPS= ../../Makefile.include Makefile 01-gcrypt-android-select.patch 02-fix-armv7-neon.patch 03-remove-cipher-gcm-armv8.patch 04-fix-o-flag-munging.patch
 
 # lib name, version
 LIBNAME=libgcrypt
@@ -24,8 +24,6 @@ CONFIGURE=cp -f $(CONFIG_SUB) $(CONFIG_GUESS) .; \
 
 LIBDYLIB=$(PLATFORM)/src/.libs/$(LIBNAME).a
 
-CLEAN_FILES=$(ARCHIVE) $(PLATFORM)
-
 all: .installed-$(PLATFORM)
 
 $(TARBALLS_LOCATION)/$(ARCHIVE):
@@ -39,6 +37,7 @@ $(PLATFORM): $(TARBALLS_LOCATION)/$(ARCHIVE) $(DEPS)
 ifneq ($(findstring arm64, $(CPU)), arm64)
 	cd $(PLATFORM); patch -p0 < ../03-remove-cipher-gcm-armv8.patch
 endif
+	cd $(PLATFORM); patch -p0 < ../04-fix-o-flag-munging.patch
 	# do not build the tests or docs
 	sed -ie "s|doc tests||" "$(PLATFORM)/Makefile.am"
 	sed -ie "s|\$$(doc) tests||" "$(PLATFORM)/Makefile.am"

@@ -1,22 +1,11 @@
 /*
- *      Copyright (C) 2014-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include "addons/binary-addons/AddonInstanceHandler.h"
@@ -45,6 +34,7 @@ namespace PERIPHERALS
 {
   class CPeripheral;
   class CPeripheralJoystick;
+  class CPeripherals;
 
   typedef std::vector<kodi::addon::DriverPrimitive> PrimitiveVector;
   typedef std::map<KODI::JOYSTICK::FeatureName, kodi::addon::JoystickFeature> FeatureMap;
@@ -52,7 +42,7 @@ namespace PERIPHERALS
   class CPeripheralAddon : public ADDON::IAddonInstanceHandler
   {
   public:
-    explicit CPeripheralAddon(const ADDON::BinaryAddonBasePtr& addonInfo);
+    explicit CPeripheralAddon(const ADDON::BinaryAddonBasePtr& addonInfo, CPeripherals &manager);
     ~CPeripheralAddon(void) override;
 
     /*!
@@ -72,9 +62,9 @@ namespace PERIPHERALS
     PeripheralPtr GetPeripheral(unsigned int index) const;
     PeripheralPtr GetByPath(const std::string &strPath) const;
     bool         SupportsFeature(PeripheralFeature feature) const;
-    int          GetPeripheralsWithFeature(PeripheralVector &results, const PeripheralFeature feature) const;
-    size_t       GetNumberOfPeripherals(void) const;
-    size_t       GetNumberOfPeripheralsWithId(const int iVendorId, const int iProductId) const;
+    unsigned int GetPeripheralsWithFeature(PeripheralVector &results, const PeripheralFeature feature) const;
+    unsigned int GetNumberOfPeripherals(void) const;
+    unsigned int GetNumberOfPeripheralsWithId(const int iVendorId, const int iProductId) const;
     void         GetDirectory(const std::string &strPath, CFileItemList &items) const;
 
     /** @name Peripheral add-on methods */
@@ -100,7 +90,6 @@ namespace PERIPHERALS
 
     void RegisterButtonMap(CPeripheral* device, KODI::JOYSTICK::IButtonMap* buttonMap);
     void UnregisterButtonMap(KODI::JOYSTICK::IButtonMap* buttonMap);
-    void RefreshButtonMaps(const std::string& strDeviceName = "");
 
     static inline bool ProvidesJoysticks(const ADDON::BinaryAddonBasePtr& addonInfo)
     {
@@ -114,6 +103,12 @@ namespace PERIPHERALS
 
   private:
     void UnregisterButtonMap(CPeripheral* device);
+
+    // Binary add-on callbacks
+    void TriggerDeviceScan();
+    void RefreshButtonMaps(const std::string& strDeviceName = "");
+    unsigned int FeatureCount(const std::string &controllerId, JOYSTICK_FEATURE_TYPE type) const;
+    JOYSTICK_FEATURE_TYPE FeatureType(const std::string &controllerId, const std::string &featureName) const;
 
     /*!
      * @brief Helper functions
@@ -137,6 +132,9 @@ namespace PERIPHERALS
 
     static std::string GetDeviceName(PeripheralType type);
     static std::string GetProvider(PeripheralType type);
+
+    // Construction parameters
+    CPeripherals &m_manager;
 
     /* @brief Cache for const char* members in PERIPHERAL_PROPERTIES */
     std::string         m_strUserPath;    /*!< @brief translated path to the user profile */
@@ -166,8 +164,8 @@ namespace PERIPHERALS
     CCriticalSection m_buttonMapMutex;
 
     /* @brief Thread synchronization */
-    CCriticalSection    m_critSection;
-    
+    mutable CCriticalSection m_critSection;
+
     AddonInstance_Peripheral m_struct;
 
     CSharedSection      m_dllSection;

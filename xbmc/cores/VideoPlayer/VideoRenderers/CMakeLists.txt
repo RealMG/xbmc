@@ -21,7 +21,7 @@ set(HEADERS BaseRenderer.h
             RenderManager.h
             DebugRenderer.h)
 
-if(CORE_SYSTEM_NAME STREQUAL windows)
+if(CORE_SYSTEM_NAME STREQUAL windows OR CORE_SYSTEM_NAME STREQUAL windowsstore)
   list(APPEND SOURCES WinRenderer.cpp
                       WinRenderBuffer.cpp
                       OverlayRendererDX.cpp)
@@ -46,18 +46,11 @@ if(OPENGLES_FOUND AND (CORE_PLATFORM_NAME_LC STREQUAL android OR
                        CORE_PLATFORM_NAME_LC STREQUAL ios OR
                        CORE_PLATFORM_NAME_LC STREQUAL aml OR
                        CORE_PLATFORM_NAME_LC STREQUAL gbm OR
-                       CORE_PLATFORM_NAME_LC STREQUAL imx OR
-                       CORE_PLATFORM_NAME_LC STREQUAL mir OR
                        CORE_PLATFORM_NAME_LC STREQUAL wayland))
   list(APPEND SOURCES LinuxRendererGLES.cpp
                       FrameBufferObject.cpp)
   list(APPEND HEADERS LinuxRendererGLES.h
                       FrameBufferObject.cpp)
-endif()
-
-if(ARCH MATCHES arm)
-  list(APPEND SOURCES yuv2rgb.neon.S)
-  list(APPEND HEADERS yuv2rgb.neon.h)
 endif()
 
 core_add_library(videorenderers)

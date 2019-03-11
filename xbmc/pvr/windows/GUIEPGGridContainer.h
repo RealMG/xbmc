@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <string>
 #include <vector>
@@ -69,8 +58,9 @@ namespace PVR
     CGUIListItemPtr GetListItem(int offset, unsigned int flag = 0) const override;
     std::string GetLabel(int info) const override;
 
-    CFileItemPtr GetSelectedChannelItem() const;
+    CFileItemPtr GetSelectedGridItem(int offset = 0) const;
     PVR::CPVRChannelPtr GetSelectedChannel() const;
+    CDateTime GetSelectedDate() const;
 
     void LoadLayout(TiXmlElement *layout);
     void SetPageControl(int id);
@@ -85,6 +75,12 @@ namespace PVR
     void GoToBegin();
     void GoToEnd();
     void GoToNow();
+    void GoToDate(const CDateTime &date);
+    void GoToTop();
+    void GoToBottom();
+    void GoToMostLeft();
+    void GoToMostRight();
+
     void SetTimelineItems(const std::unique_ptr<CFileItemList> &items, const CDateTime &gridStart, const CDateTime &gridEnd);
     /*!
      * @brief Set the control's selection to the given channel and set the control's view port to show the channel.
@@ -226,10 +222,9 @@ namespace PVR
     float m_channelScrollSpeed;
     float m_channelScrollOffset;
 
-    CCriticalSection m_critSection;
+    mutable CCriticalSection m_critSection;
     std::unique_ptr<CGUIEPGGridContainerModel> m_gridModel;
     std::unique_ptr<CGUIEPGGridContainerModel> m_updatedGridModel;
-    std::unique_ptr<CGUIEPGGridContainerModel> m_outdatedGridModel;
 
     GridItem *m_item;
   };

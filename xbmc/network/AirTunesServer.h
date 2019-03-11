@@ -1,29 +1,15 @@
-#pragma once
 /*
  * Many concepts and protocol specification in this code are taken from
  * the Boxee project. http://www.boxee.tv
  *
- *      Copyright (C) 2011-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-#include "system.h"
 
-#ifdef HAS_AIRTUNES
+#pragma once
 
 #include "DllLibShairplay.h"
 #include <sys/types.h>
@@ -35,7 +21,6 @@
 #include <list>
 #include "threads/Thread.h"
 #include "threads/CriticalSection.h"
-#include "utils/HttpParser.h"
 #include "filesystem/PipeFile.h"
 #include "interfaces/IAnnouncer.h"
 #include "interfaces/IActionListener.h"
@@ -53,7 +38,7 @@ public:
   static void EnableActionProcessing(bool enable);
   // IACtionListener
   bool OnAction(const CAction &action) override;
-  
+
   //CThread
   void Process() override;
 
@@ -74,6 +59,7 @@ private:
   static void RefreshCoverArt(const char *outputFilename = NULL);
   static void RefreshMetadata();
   static void ResetMetadata();
+  static void InformPlayerAboutPlayTimes();
 
   int m_port;
   static DllLibShairplay *m_pLibShairplay;//the lib
@@ -92,6 +78,9 @@ private:
   static std::list<CAction> m_actionQueue;
   static CEvent m_processActions;
   static int m_sampleRate;
+  static unsigned int m_cachedStartTime;
+  static unsigned int m_cachedEndTime;
+  static unsigned int m_cachedCurrentTime;
 
   class AudioOutputFunctions
   {
@@ -106,5 +95,3 @@ private:
       static void  audio_set_progress(void *cls, void *session, unsigned int start, unsigned int curr, unsigned int end);
     };
 };
-
-#endif

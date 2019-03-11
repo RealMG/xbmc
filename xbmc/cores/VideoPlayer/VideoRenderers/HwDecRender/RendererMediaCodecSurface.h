@@ -1,28 +1,13 @@
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
-#if defined(TARGET_ANDROID)
-
-#include "system.h"
 #include "cores/VideoPlayer/VideoRenderers/BaseRenderer.h"
 
 class CMediaCodecVideoBuffer;
@@ -37,14 +22,13 @@ public:
   static bool Register();
 
   virtual bool RenderCapture(CRenderCapture* capture) override;
-  virtual void AddVideoPicture(const VideoPicture &picture, int index, double currentClock) override;
+  virtual void AddVideoPicture(const VideoPicture &picture, int index) override;
   virtual void ReleaseBuffer(int idx) override;
-  virtual bool Configure(const VideoPicture &picture, float fps, unsigned flags, unsigned int orientation) override;
+  virtual bool Configure(const VideoPicture &picture, float fps, unsigned int orientation) override;
   virtual bool IsConfigured() override { return m_bConfigured; };
   virtual bool ConfigChanged(const VideoPicture &picture) override { return false; };
   virtual CRenderInfo GetRenderInfo() override;
   virtual void UnInit() override {};
-  virtual void Reset() override;
   virtual void Update() override {};
   virtual void RenderUpdate(int index, int index2, bool clear, unsigned int flags, unsigned int alpha) override;
   virtual bool SupportsMultiPassRendering() override { return false; };
@@ -60,8 +44,15 @@ protected:
   virtual void ReorderDrawPoints() override;
 
 private:
-  bool m_bConfigured;
-  CRect m_surfDestRect;
-};
+  void Reset();
+  void ReleaseVideoBuffer(int idx, bool render);
 
-#endif
+  bool m_bConfigured = false;
+  CRect m_surfDestRect;
+  int m_lastIndex = -1;
+
+  struct BUFFER
+  {
+    CVideoBuffer *videoBuffer = nullptr;
+  } m_buffers[4];
+};

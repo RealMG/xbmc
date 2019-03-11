@@ -1,17 +1,25 @@
-set(SOURCES GLContextEGL.cpp
+set(SOURCES OptionalsReg.cpp
             WinSystemGbm.cpp
             GBMUtils.cpp
             DRMUtils.cpp
             DRMLegacy.cpp
-            DRM.cpp)
+            DRMAtomic.cpp
+            OffScreenModeSetting.cpp
+            WinSystemGbmEGLContext.cpp)
 
-set(HEADERS GLContextEGL.h
+set(HEADERS OptionalsReg.h
             WinSystemGbm.h
             GBMUtils.h
             DRMUtils.h
             DRMLegacy.h
-            DRM.h)
+            DRMAtomic.h
+            OffScreenModeSetting.h
+            WinSystemGbmEGLContext.h)
 
+if (OPENGL_FOUND)
+  list(APPEND SOURCES WinSystemGbmGLContext.cpp)
+  list(APPEND HEADERS WinSystemGbmGLContext.h)
+endif()
 if(OPENGLES_FOUND)
   list(APPEND SOURCES WinSystemGbmGLESContext.cpp)
   list(APPEND HEADERS WinSystemGbmGLESContext.h)

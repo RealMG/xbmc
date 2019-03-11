@@ -1,22 +1,10 @@
 /*
-*      Copyright (C) 2005-2014 Team XBMC
-*      http://xbmc.org
-*
-*  This Program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2, or (at your option)
-*  any later version.
-*
-*  This Program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with XBMC; see the file COPYING.  If not, see
-*  <http://www.gnu.org/licenses/>.
-*
-*/
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
 
 #include "cores/DataCacheCore.h"
 #include "threads/SingleLock.h"
@@ -61,6 +49,11 @@ void CDataCacheCore::SignalVideoInfoChange()
 }
 
 void CDataCacheCore::SignalAudioInfoChange()
+{
+  m_hasAVInfoChanges = true;
+}
+
+void CDataCacheCore::SignalSubtitleInfoChange()
 {
   m_hasAVInfoChanges = true;
 }
@@ -260,7 +253,7 @@ void CDataCacheCore::SetStateSeeking(bool active)
   m_playerStateChanged = true;
 }
 
-bool CDataCacheCore::CDataCacheCore::IsSeeking()
+bool CDataCacheCore::IsSeeking()
 {
   CSingleLock lock(m_stateSection);
 
@@ -289,6 +282,20 @@ float CDataCacheCore::GetTempo()
   return m_stateInfo.m_tempo;
 }
 
+void CDataCacheCore::SetFrameAdvance(bool fa)
+{
+  CSingleLock lock(m_stateSection);
+
+  m_stateInfo.m_frameAdvance = fa;
+}
+
+bool CDataCacheCore::IsFrameAdvance()
+{
+  CSingleLock lock(m_stateSection);
+
+  return m_stateInfo.m_frameAdvance;
+}
+
 bool CDataCacheCore::IsPlayerStateChanged()
 {
   CSingleLock lock(m_stateSection);
@@ -307,7 +314,7 @@ void CDataCacheCore::SetGuiRender(bool gui)
   m_playerStateChanged = true;
 }
 
-bool CDataCacheCore::CDataCacheCore::GetGuiRender()
+bool CDataCacheCore::GetGuiRender()
 {
   CSingleLock lock(m_stateSection);
 
@@ -322,7 +329,7 @@ void CDataCacheCore::SetVideoRender(bool video)
   m_playerStateChanged = true;
 }
 
-bool CDataCacheCore::CDataCacheCore::GetVideoRender()
+bool CDataCacheCore::GetVideoRender()
 {
   CSingleLock lock(m_stateSection);
 
@@ -336,6 +343,15 @@ void CDataCacheCore::SetPlayTimes(time_t start, int64_t current, int64_t min, in
   m_timeInfo.m_time = current;
   m_timeInfo.m_timeMin = min;
   m_timeInfo.m_timeMax = max;
+}
+
+void CDataCacheCore::GetPlayTimes(time_t &start, int64_t &current, int64_t &min, int64_t &max)
+{
+  CSingleLock lock(m_stateSection);
+  start = m_timeInfo.m_startTime;
+  current = m_timeInfo.m_time;
+  min = m_timeInfo.m_timeMin;
+  max = m_timeInfo.m_timeMax;
 }
 
 time_t CDataCacheCore::GetStartTime()
@@ -360,4 +376,19 @@ int64_t CDataCacheCore::GetMaxTime()
 {
   CSingleLock lock(m_stateSection);
   return m_timeInfo.m_timeMax;
+}
+
+float CDataCacheCore::GetPlayPercentage()
+{
+  CSingleLock lock(m_stateSection);
+
+  // Note: To calculate accurate percentage, all time data must be consistent,
+  //       which is the case for data cache core. Calculation can not be done
+  //       outside of data cache core or a possibility to lock the data cache
+  //       core from outside would be needed.
+  int64_t iTotalTime = m_timeInfo.m_timeMax - m_timeInfo.m_timeMin;
+  if (iTotalTime <= 0)
+    return 0;
+
+  return m_timeInfo.m_time * 100 / static_cast<float>(iTotalTime);
 }

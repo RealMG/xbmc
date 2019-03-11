@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -178,7 +178,7 @@ msgstr "Afspeellijstopties"
 
 msgctxt "#31043"
 msgid "Set the type and add rules to create a smart playlist. These playlists are dynamic and include all media items from your database which apply to your chosen rules."
-msgstr "Stel het type in en voeg regels toe om een slimme afspeellijst te maken. Deze afspeellijsten zijn dynamisch en bevatten alle media items vanuit uw database die voldoen aan uw gekozen regels."
+msgstr "Stel het type in en voeg regels toe om een slimme afspeellijst te maken. Deze afspeellijsten zijn dynamisch en bevatten alle media-items vanuit uw database die voldoen aan uw gekozen regels."
 
 msgctxt "#31044"
 msgid "Add group"
@@ -199,10 +199,6 @@ msgstr "Beschikbaar"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Druk [B]Ok[/B] om te stoppen"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Verander taal"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -448,6 +444,14 @@ msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Kies skinfanartpakket"
 
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Selecteer programma"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Kies resolutie"
+
 msgctxt "#31134"
 msgid "Remaining"
 msgstr "Resterend"
@@ -542,7 +546,7 @@ msgstr "Artwork"
 
 msgctxt "#31160"
 msgid "Show media flags"
-msgstr "Toon mediavlaggen"
+msgstr "Toon media-informatie"
 
 msgctxt "#31161"
 msgid "Numeric pad"
@@ -555,3 +559,19 @@ msgstr "Speel uw persoonlijke spellen, of download één van de vele speladd-ons
 msgctxt "#31163"
 msgid "Show Fanart background"
 msgstr "Toon fanartachtergrond"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Kies het type profielidentificatie"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Profielnaam"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Profielafbeelding"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Achtergrondanimatie"

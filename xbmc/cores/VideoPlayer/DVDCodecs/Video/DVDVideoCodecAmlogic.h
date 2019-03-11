@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "DVDVideoCodec.h"
 #include "DVDStreamInfo.h"
@@ -28,7 +17,6 @@
 #include <atomic>
 
 class CAMLCodec;
-struct frame_queue;
 struct mpeg2_sequence;
 class CBitstreamParser;
 class CBitstreamConverter;
@@ -88,8 +76,6 @@ public:
 
 protected:
   void            Dispose(void);
-  void            FrameQueuePop(void);
-  void            FrameQueuePush(double dts, double pts);
   void            FrameRateTracking(uint8_t *pData, int iSize, double dts, double pts);
   //void            RemoveInfo(CDVDAmlogicInfo* info);
 
@@ -100,10 +86,6 @@ protected:
   bool            m_opened;
   int             m_codecControlFlags;
   CDVDStreamInfo  m_hints;
-  double          m_last_pts;
-  frame_queue    *m_frame_queue;
-  int32_t         m_queue_depth;
-  pthread_mutex_t m_queue_mutex;
   double          m_framerate;
   int             m_video_rate;
   float           m_aspect_ratio;

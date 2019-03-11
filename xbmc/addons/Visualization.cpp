@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Visualization.h"
@@ -24,7 +12,7 @@
 #include "guilib/GUIWindowManager.h"
 #include "utils/log.h"
 #if defined(TARGET_WINDOWS)
-#include "windowing/WindowingFactory.h"
+#include "rendering/dx/DeviceResources.h"
 #endif
 
 namespace ADDON
@@ -40,7 +28,7 @@ CVisualization::CVisualization(ADDON::BinaryAddonBasePtr addonBase, float x, flo
 
   m_struct = {{0}};
 #if defined(TARGET_WINDOWS)
-  m_struct.props.device = g_Windowing.Get3D11Context();
+  m_struct.props.device = DX::DeviceResources::Get()->GetD3DContext();
 #else
   m_struct.props.device = nullptr;
 #endif
@@ -48,7 +36,7 @@ CVisualization::CVisualization(ADDON::BinaryAddonBasePtr addonBase, float x, flo
   m_struct.props.y = static_cast<int>(y);
   m_struct.props.width = static_cast<int>(w);
   m_struct.props.height = static_cast<int>(h);
-  m_struct.props.pixelRatio = g_graphicsContext.GetResInfo().fPixelRatio;
+  m_struct.props.pixelRatio = CServiceBroker::GetWinSystem()->GetGfxContext().GetResInfo().fPixelRatio;
   m_struct.props.name = m_name.c_str();
   m_struct.props.presets = m_presetsPath.c_str();
   m_struct.props.profile = m_profilePath.c_str();

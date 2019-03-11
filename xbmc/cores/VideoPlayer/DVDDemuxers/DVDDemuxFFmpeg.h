@@ -1,24 +1,12 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "DVDDemux.h"
 #include "threads/CriticalSection.h"
@@ -88,9 +76,9 @@ public:
   CDVDDemuxFFmpeg();
   ~CDVDDemuxFFmpeg() override;
 
-  bool Open(CDVDInputStream* pInput, bool streaminfo = true, bool fileinfo = false);
+  bool Open(std::shared_ptr<CDVDInputStream> pInput, bool streaminfo = true, bool fileinfo = false);
   void Dispose();
-  void Reset() override ;
+  bool Reset() override ;
   void Flush() override;
   void Abort() override;
   void SetSpeed(int iSpeed) override;
@@ -104,6 +92,8 @@ public:
   CDemuxStream* GetStream(int iStreamId) const override;
   std::vector<CDemuxStream*> GetStreams() const override;
   int GetNrOfStreams() const override;
+  int GetPrograms(std::vector<ProgramInfo>& programs) override;
+  void SetProgram(int progId) override;
 
   bool SeekChapter(int chapter, double* startpts = NULL) override;
   int GetChapterCount() override;
@@ -115,7 +105,7 @@ public:
   bool Aborted();
 
   AVFormatContext* m_pFormatContext;
-  CDVDInputStream* m_pInput;
+  std::shared_ptr<CDVDInputStream> m_pInput;
 
 protected:
   friend class CDemuxStreamAudioFFmpeg;
@@ -152,7 +142,10 @@ protected:
   bool     m_bAVI;
   bool     m_bSup;
   int      m_speed;
-  unsigned m_program;
+  unsigned int m_program;
+  unsigned int m_streamsInProgram;
+  unsigned int m_newProgram;
+
   XbmcThreads::EndTime  m_timeout;
 
   // Due to limitations of ffmpeg, we only can detect a program change
@@ -168,5 +161,7 @@ protected:
   bool m_checkvideo;
   int m_displayTime = 0;
   double m_dtsAtDisplayTime;
+  bool m_seekToKeyFrame = false;
+  double m_startTime = 0;
 };
 

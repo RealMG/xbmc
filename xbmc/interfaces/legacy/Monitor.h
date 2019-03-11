@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
@@ -156,6 +144,8 @@ namespace XBMCAddon
       ///
       /// @note Will be called when library clean has ended and return video or
       /// music to indicate which library is being scanned
+      ///
+      ///
       ///-----------------------------------------------------------------------
       /// @python_v14 New function added.
       ///
@@ -176,6 +166,8 @@ namespace XBMCAddon
       ///
       /// @note Will be called when library clean has ended and return video or
       /// music to indicate which library has been scanned
+      ///
+      ///
       ///-----------------------------------------------------------------------
       /// @python_v14 New function added.
       ///
@@ -221,6 +213,8 @@ namespace XBMCAddon
       ///
       /// @note Will be called when library clean has ended and return video or
       /// music to indicate which library has been cleaned
+      ///
+      ///
       ///-----------------------------------------------------------------------
       /// @python_v14 New function added.
       ///
@@ -241,6 +235,8 @@ namespace XBMCAddon
       ///
       /// @note Will be called when library clean has ended and return video or
       /// music to indicate which library has been finished
+      ///
+      ///
       ///-----------------------------------------------------------------------
       /// @python_v14 New function added.
       ///
@@ -264,7 +260,7 @@ namespace XBMCAddon
 #ifdef DOXYGEN_SHOULD_USE_THIS
       ///
       /// \ingroup python_monitor
-      /// @brief \python_func{ onNotification(sender, method, data }
+      /// @brief \python_func{ onNotification(sender, method, data) }
       ///-----------------------------------------------------------------------
       /// onNotification method.
       ///
@@ -273,6 +269,8 @@ namespace XBMCAddon
       /// @param data                JSON-encoded data of the notification
       ///
       /// @note Will be called when Kodi receives or sends a notification
+      ///
+      ///
       ///-----------------------------------------------------------------------
       /// @python_v13 New function added.
       ///
@@ -292,9 +290,12 @@ namespace XBMCAddon
       ///
       /// @param timeout                 [opt] float - timeout in seconds.
       ///                                Default: no timeout.
+      ///
       /// @return                        True when abort have been requested,
       ///                                False if a timeout is given and the
       ///                                operation times out.
+      ///
+      ///
       ///-----------------------------------------------------------------------
       /// @python_v14 New function added.
       ///
@@ -310,6 +311,8 @@ namespace XBMCAddon
       /// Returns True if abort has been requested.
       ///
       /// @return                        True if requested
+      ///
+      ///
       ///-----------------------------------------------------------------------
       /// @python_v14 New function added.
       ///
@@ -317,8 +320,7 @@ namespace XBMCAddon
 #else
       bool abortRequested();
 #endif
-      //! @todo Switch to 'override' usage once 14.04 (Trusty) hits EOL. swig <3.0 doesn't understand C++11
-      virtual ~Monitor();
+      ~Monitor() override;
     };
     /** @} */
   }

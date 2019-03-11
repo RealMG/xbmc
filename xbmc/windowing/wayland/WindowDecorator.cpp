@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2017 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "WindowDecorator.h"
@@ -28,6 +16,7 @@
 #include <linux/input-event-codes.h>
 
 #include "threads/SingleLock.h"
+#include "Util.h"
 #include "utils/EndianSwap.h"
 #include "utils/log.h"
 
@@ -40,8 +29,12 @@ namespace
 
 /// Bytes per pixel in shm storage
 constexpr int BYTES_PER_PIXEL{4};
-/// Width of the border around the whole window
-constexpr int BORDER_WIDTH{5};
+/// Width of the visible border around the whole window
+constexpr int VISIBLE_BORDER_WIDTH{5};
+/// Width of the invisible border around the whole window for easier resizing
+constexpr int RESIZE_BORDER_WIDTH{10};
+/// Total width of the border around the window
+constexpr int BORDER_WIDTH{VISIBLE_BORDER_WIDTH + RESIZE_BORDER_WIDTH};
 /// Height of the top bar
 constexpr int TOP_BAR_HEIGHT{33};
 /// Maximum distance from the window corner to consider position valid for resize
@@ -53,6 +46,7 @@ constexpr int BUTTON_INNER_SEPARATION{4};
 /// Button size
 constexpr int BUTTON_SIZE{21};
 
+constexpr std::uint32_t TRANSPARENT{0x00000000u};
 constexpr std::uint32_t BORDER_COLOR{0xFF000000u};
 constexpr std::uint32_t BUTTON_COLOR_ACTIVE{0xFFFFFFFFu};
 constexpr std::uint32_t BUTTON_COLOR_INACTIVE{0xFF777777u};
@@ -88,6 +82,7 @@ static_assert(BUTTON_SIZE <= TOP_BAR_HEIGHT - BUTTONS_EDGE_DISTANCE * 2, "Button
 
 CRectInt SurfaceGeometry(SurfaceIndex type, CSizeInt mainSurfaceSize)
 {
+  // Coordinates are relative to main surface
   switch (type)
   {
     case SURFACE_TOP:
@@ -115,12 +110,48 @@ CRectInt SurfaceGeometry(SurfaceIndex type, CSizeInt mainSurfaceSize)
   }
 }
 
+CRectInt SurfaceOpaqueRegion(SurfaceIndex type, CSizeInt mainSurfaceSize)
+{
+  // Coordinates are relative to main surface
+  auto size = SurfaceGeometry(type, mainSurfaceSize).ToSize();
+  switch (type)
+  {
+    case SURFACE_TOP:
+      return {
+        CPointInt{RESIZE_BORDER_WIDTH, RESIZE_BORDER_WIDTH},
+        size - CSizeInt{RESIZE_BORDER_WIDTH * 2, RESIZE_BORDER_WIDTH}
+      };
+    case SURFACE_RIGHT:
+      return {
+        CPointInt{},
+        size - CSizeInt{RESIZE_BORDER_WIDTH, 0}
+      };
+    case SURFACE_BOTTOM:
+      return {
+        CPointInt{RESIZE_BORDER_WIDTH, 0},
+        size - CSizeInt{RESIZE_BORDER_WIDTH * 2, RESIZE_BORDER_WIDTH}
+      };
+    case SURFACE_LEFT:
+      return {
+        CPointInt{RESIZE_BORDER_WIDTH, 0},
+        size - CSizeInt{RESIZE_BORDER_WIDTH, 0}
+      };
+    default:
+      throw std::logic_error("Invalid surface type");
+  }
+}
+
+CRectInt SurfaceWindowRegion(SurfaceIndex type, CSizeInt mainSurfaceSize)
+{
+  return SurfaceOpaqueRegion(type, mainSurfaceSize);
+}
+
 /**
  * Full size of decorations to be added to the main surface size
  */
 CSizeInt DecorationSize()
 {
-  return {2 * BORDER_WIDTH, 2 * BORDER_WIDTH + TOP_BAR_HEIGHT};
+  return {2 * VISIBLE_BORDER_WIDTH, 2 * VISIBLE_BORDER_WIDTH + TOP_BAR_HEIGHT};
 }
 
 std::size_t MemoryBytesForSize(CSizeInt windowSurfaceSize, int scale)
@@ -203,7 +234,7 @@ void FillRectangle(CWindowDecorator::Buffer& buffer, std::uint32_t color, CRectI
 {
   for (int y{rect.y1}; y <= rect.y2; y++)
   {
-    DrawHorizontalLine(buffer, color, {rect.x1, y}, rect.Width());
+    DrawHorizontalLine(buffer, color, {rect.x1, y}, rect.Width() + 1);
   }
 }
 
@@ -235,13 +266,13 @@ void DrawRectangle(CWindowDecorator::Surface& surface, std::uint32_t color, CRec
 {
   for (int i{0}; i < surface.scale; i++)
   {
-    DrawRectangle(surface.buffer, color, {rect.P1() * surface.scale + CPointInt{i, i}, rect.P2() * surface.scale - CPointInt{i, i}});
+    DrawRectangle(surface.buffer, color, {rect.P1() * surface.scale + CPointInt{i, i}, (rect.P2() + CPointInt{1, 1}) * surface.scale - CPointInt{i, i} - CPointInt{1, 1}});
   }
 }
 
 void FillRectangle(CWindowDecorator::Surface& surface, std::uint32_t color, CRectInt rect)
 {
-  FillRectangle(surface.buffer, color, {rect.P1() * surface.scale, rect.P2() * surface.scale});
+  FillRectangle(surface.buffer, color, {rect.P1() * surface.scale, (rect.P2() + CPointInt{1, 1}) * surface.scale - CPointInt{1, 1}});
 }
 
 void DrawButton(CWindowDecorator::Surface& surface, std::uint32_t lineColor, CRectInt rect, bool hover)
@@ -389,102 +420,116 @@ CWindowDecorator::CWindowDecorator(IWindowDecorationHandler& handler, CConnectio
   m_registry.RequestSingleton(m_compositor, 1, 4);
   m_registry.RequestSingleton(m_subcompositor, 1, 1, false);
   m_registry.RequestSingleton(m_shm, 1, 1);
-  m_registry.Request<wayland::seat_t>(1, 5, std::bind(&CWindowDecorator::OnSeatAdded, this, _1, _2), std::bind(&CWindowDecorator::OnSeatRemoved, this, _1));
 
   m_registry.Bind();
 }
 
-void CWindowDecorator::OnSeatAdded(std::uint32_t name, wayland::proxy_t&& proxy)
+void CWindowDecorator::AddSeat(CSeat* seat)
 {
-  wayland::seat_t seat{proxy};
-  seat.on_capabilities() = std::bind(&CWindowDecorator::OnSeatCapabilities, this, name, _1);
-  m_seats.emplace(std::piecewise_construct, std::forward_as_tuple(name), std::forward_as_tuple(std::move(seat)));
+  m_seats.emplace(std::piecewise_construct, std::forward_as_tuple(seat->GetGlobalName()), std::forward_as_tuple(seat));
+  seat->AddRawInputHandlerTouch(this);
+  seat->AddRawInputHandlerPointer(this);
 }
 
-void CWindowDecorator::OnSeatRemoved(std::uint32_t name)
+void CWindowDecorator::RemoveSeat(CSeat* seat)
 {
-  m_seats.erase(name);
+  seat->RemoveRawInputHandlerTouch(this);
+  seat->RemoveRawInputHandlerPointer(this);
+  m_seats.erase(seat->GetGlobalName());
   UpdateButtonHoverState();
 }
 
-void CWindowDecorator::OnSeatCapabilities(std::uint32_t name, wayland::seat_capability capabilities)
+void CWindowDecorator::OnPointerEnter(CSeat* seat, std::uint32_t serial, wayland::surface_t surface, double surfaceX, double surfaceY)
 {
-  auto& seat = m_seats.at(name);
-  if (HandleCapabilityChange(capabilities, wayland::seat_capability::pointer, seat.pointer, std::bind(&wayland::seat_t::get_pointer, seat.seat)))
+  auto seatStateI = m_seats.find(seat->GetGlobalName());
+  if (seatStateI == m_seats.end())
   {
-    HandleSeatPointer(seat);
+    return;
   }
-  if (HandleCapabilityChange(capabilities, wayland::seat_capability::touch, seat.touch, std::bind(&wayland::seat_t::get_touch, seat.seat)))
+  auto& seatState = seatStateI->second;
+  // Reset first so we ignore events for surfaces we don't handle
+  seatState.currentSurface = SURFACE_COUNT;
+  CSingleLock lock(m_mutex);
+  for (std::size_t i{0}; i < m_borderSurfaces.size(); i++)
   {
-    HandleSeatTouch(seat);
-  }
-  UpdateButtonHoverState();
-}
-
-void CWindowDecorator::HandleSeatPointer(Seat& seat)
-{
-  seat.pointer.on_enter() = [this, &seat](std::uint32_t serial, wayland::surface_t surface, float x, float y)
-  {
-    // Reset first so we ignore events for surfaces we don't handle
-   seat.currentSurface = SURFACE_COUNT;
-   CSingleLock lock(m_mutex);
-   for (std::size_t i{0}; i < m_borderSurfaces.size(); i++)
-   {
-     if (m_borderSurfaces[i].surface.wlSurface == surface)
-      {
-       seat.pointerEnterSerial = serial;
-       seat.currentSurface = static_cast<SurfaceIndex> (i);
-       seat.pointerPosition = {x, y};
-       UpdateSeatCursor(seat);
-       UpdateButtonHoverState();
-       break;
-      }
-    }
-  };
-  seat.pointer.on_leave() = [this, &seat](std::uint32_t, wayland::surface_t)
-  {
-    seat.currentSurface = SURFACE_COUNT;
-    // Recreate cursor surface on reenter
-    seat.cursorName.clear();
-    seat.cursor.proxy_release();
-    UpdateButtonHoverState();
-  };
-  seat.pointer.on_motion() = [this, &seat](std::uint32_t, float x, float y)
-  {
-    if (seat.currentSurface != SURFACE_COUNT)
+    if (m_borderSurfaces[i].surface.wlSurface == surface)
     {
-      seat.pointerPosition = {x, y};
-      UpdateSeatCursor(seat);
+      seatState.pointerEnterSerial = serial;
+      seatState.currentSurface = static_cast<SurfaceIndex> (i);
+      seatState.pointerPosition = {static_cast<float> (surfaceX), static_cast<float> (surfaceY)};
+      UpdateSeatCursor(seatState);
       UpdateButtonHoverState();
+      break;
     }
-  };
-  seat.pointer.on_button() = [this, &seat](std::uint32_t serial, std::uint32_t, std::uint32_t button, wayland::pointer_button_state state)
+  }
+}
+
+void CWindowDecorator::OnPointerLeave(CSeat* seat, std::uint32_t serial, wayland::surface_t surface)
+{
+  auto seatStateI = m_seats.find(seat->GetGlobalName());
+  if (seatStateI == m_seats.end())
   {
-    if (seat.currentSurface != SURFACE_COUNT && state == wayland::pointer_button_state::pressed)
+    return;
+  }
+  auto& seatState = seatStateI->second;
+  seatState.currentSurface = SURFACE_COUNT;
+  // Recreate cursor surface on reenter
+  seatState.cursorName.clear();
+  seatState.cursor.proxy_release();
+  UpdateButtonHoverState();
+}
+
+void CWindowDecorator::OnPointerMotion(CSeat* seat, std::uint32_t time, double surfaceX, double surfaceY)
+{
+  auto seatStateI = m_seats.find(seat->GetGlobalName());
+  if (seatStateI == m_seats.end())
+  {
+    return;
+  }
+  auto& seatState = seatStateI->second;
+  if (seatState.currentSurface != SURFACE_COUNT)
+  {
+    seatState.pointerPosition = {static_cast<float> (surfaceX), static_cast<float> (surfaceY)};
+    UpdateSeatCursor(seatState);
+    UpdateButtonHoverState();
+  }
+}
+
+void CWindowDecorator::OnPointerButton(CSeat* seat, std::uint32_t serial, std::uint32_t time, std::uint32_t button, wayland::pointer_button_state state)
+{
+  auto seatStateI = m_seats.find(seat->GetGlobalName());
+  if (seatStateI == m_seats.end())
+  {
+    return;
+  }
+  auto& seatState = seatStateI->second;
+  if (seatState.currentSurface != SURFACE_COUNT && state == wayland::pointer_button_state::pressed)
+  {
+    HandleSeatClick(seatState, seatState.currentSurface, serial, button, seatState.pointerPosition);
+  }
+}
+
+void CWindowDecorator::OnTouchDown(CSeat* seat, std::uint32_t serial, std::uint32_t time, wayland::surface_t surface, std::int32_t id, double x, double y)
+{
+  auto seatStateI = m_seats.find(seat->GetGlobalName());
+  if (seatStateI == m_seats.end())
+  {
+    return;
+  }
+  auto& seatState = seatStateI->second;
+  CSingleLock lock(m_mutex);
+  for (std::size_t i{0}; i < m_borderSurfaces.size(); i++)
+  {
+    if (m_borderSurfaces[i].surface.wlSurface == surface)
     {
-      HandleSeatClick(seat.seat, seat.currentSurface, serial, button, seat.pointerPosition);
+      HandleSeatClick(seatState, static_cast<SurfaceIndex> (i), serial, BTN_LEFT, {static_cast<float> (x), static_cast<float> (y)});
     }
-  };
+  }
 }
 
-void CWindowDecorator::HandleSeatTouch(Seat& seat)
+void CWindowDecorator::UpdateSeatCursor(SeatState& seatState)
 {
-  seat.touch.on_down() = [this, &seat](std::uint32_t serial, std::uint32_t, wayland::surface_t surface, std::int32_t id, float x, float y)
-  {
-   CSingleLock lock(m_mutex);
-   for (std::size_t i{0}; i < m_borderSurfaces.size(); i++)
-   {
-     if (m_borderSurfaces[i].surface.wlSurface == surface)
-     {
-       HandleSeatClick(seat.seat, static_cast<SurfaceIndex> (i), serial, BTN_LEFT, {x, y});
-     }
-   }
-  };
-}
-
-void CWindowDecorator::UpdateSeatCursor(Seat& seat)
-{
-  if (seat.currentSurface == SURFACE_COUNT)
+  if (seatState.currentSurface == SURFACE_COUNT)
   {
     // Don't set anything if not on any surface
     return;
@@ -496,24 +541,24 @@ void CWindowDecorator::UpdateSeatCursor(Seat& seat)
 
   {
     CSingleLock lock(m_mutex);
-    auto resizeEdge = ResizeEdgeForPosition(seat.currentSurface, SurfaceGeometry(seat.currentSurface, m_mainSurfaceSize).ToSize(), CPointInt{seat.pointerPosition});
+    auto resizeEdge = ResizeEdgeForPosition(seatState.currentSurface, SurfaceGeometry(seatState.currentSurface, m_mainSurfaceSize).ToSize(), CPointInt{seatState.pointerPosition});
     if (resizeEdge != wayland::shell_surface_resize::none)
     {
       cursorName = CursorForResizeEdge(resizeEdge);
     }
   }
 
-  if (cursorName == seat.cursorName)
+  if (cursorName == seatState.cursorName)
   {
     // Don't reload cursor all the time when nothing is changing
     return;
   }
-  seat.cursorName = cursorName;
+  seatState.cursorName = cursorName;
 
   wayland::cursor_t cursor;
   try
   {
-    cursor = m_cursorTheme.get_cursor(cursorName);
+    cursor = CCursorUtil::LoadFromTheme(m_cursorTheme, cursorName);
   }
   catch (std::exception const& e)
   {
@@ -522,20 +567,20 @@ void CWindowDecorator::UpdateSeatCursor(Seat& seat)
   }
   auto cursorImage = cursor.image(0);
 
-  if (!seat.cursor)
+  if (!seatState.cursor)
   {
-    seat.cursor = m_compositor.create_surface();
+    seatState.cursor = m_compositor.create_surface();
   }
-  int calcScale{seat.cursor.can_set_buffer_scale() ? m_scale : 1};
+  int calcScale{seatState.cursor.can_set_buffer_scale() ? m_scale : 1};
 
-  seat.pointer.set_cursor(seat.pointerEnterSerial, seat.cursor, cursorImage.hotspot_x() / calcScale, cursorImage.hotspot_y() / calcScale);
-  seat.cursor.attach(cursorImage.get_buffer(), 0, 0);
-  seat.cursor.damage(0, 0, cursorImage.width() / calcScale, cursorImage.height() / calcScale);
-  if (seat.cursor.can_set_buffer_scale())
+  seatState.seat->SetCursor(seatState.pointerEnterSerial, seatState.cursor, cursorImage.hotspot_x() / calcScale, cursorImage.hotspot_y() / calcScale);
+  seatState.cursor.attach(cursorImage.get_buffer(), 0, 0);
+  seatState.cursor.damage(0, 0, cursorImage.width() / calcScale, cursorImage.height() / calcScale);
+  if (seatState.cursor.can_set_buffer_scale())
   {
-    seat.cursor.set_buffer_scale(m_scale);
+    seatState.cursor.set_buffer_scale(m_scale);
   }
-  seat.cursor.commit();
+  seatState.cursor.commit();
 }
 
 void CWindowDecorator::UpdateButtonHoverState()
@@ -568,7 +613,7 @@ void CWindowDecorator::UpdateButtonHoverState()
   }
 }
 
-void CWindowDecorator::HandleSeatClick(wayland::seat_t seat, SurfaceIndex surface, std::uint32_t serial, std::uint32_t button, CPoint position)
+void CWindowDecorator::HandleSeatClick(SeatState const& seatState, SurfaceIndex surface, std::uint32_t serial, std::uint32_t button, CPoint position)
 {
   switch (button)
   {
@@ -587,18 +632,18 @@ void CWindowDecorator::HandleSeatClick(wayland::seat_t seat, SurfaceIndex surfac
           }
         }
 
-        m_handler.OnWindowMove(seat, serial);
+        m_handler.OnWindowMove(seatState.seat->GetWlSeat(), serial);
       }
       else
       {
-        m_handler.OnWindowResize(seat, serial, resizeEdge);
+        m_handler.OnWindowResize(seatState.seat->GetWlSeat(), serial, resizeEdge);
       }
     }
     break;
     case BTN_RIGHT:
       if (surface == SURFACE_TOP)
       {
-        m_handler.OnWindowShowContextMenu(seat, serial, CPointInt{position} - CPointInt{BORDER_WIDTH, BORDER_WIDTH + TOP_BAR_HEIGHT});
+        m_handler.OnWindowShowContextMenu(seatState.seat->GetWlSeat(), serial, CPointInt{position} - CPointInt{BORDER_WIDTH, BORDER_WIDTH + TOP_BAR_HEIGHT});
       }
       break;
   }
@@ -802,13 +847,13 @@ void CWindowDecorator::ReattachSubsurfaces()
 
 CRectInt CWindowDecorator::GetWindowGeometry() const
 {
-  CRectInt geometry{{0, 0}, m_mainSurfaceSize.ToPoint()};
+  CRectInt geometry{{0, 0}, m_mainSurfaceSize};
 
   if (IsDecorationActive())
   {
     for (auto const& surface : m_borderSurfaces)
     {
-      geometry.Union(surface.geometry);
+      geometry.Union(surface.windowRect + surface.geometry.P1());
     }
   }
 
@@ -873,18 +918,21 @@ void CWindowDecorator::AllocateBuffers()
 {
   for (std::size_t i{0}; i < m_borderSurfaces.size(); i++)
   {
-    if (!m_borderSurfaces[i].surface.buffer.data)
+    auto& borderSurface = m_borderSurfaces[i];
+    if (!borderSurface.surface.buffer.data)
     {
-      m_borderSurfaces[i].geometry = SurfaceGeometry(static_cast<SurfaceIndex> (i), m_mainSurfaceSize);
-      m_borderSurfaces[i].surface.buffer = GetBuffer(m_borderSurfaces[i].geometry.ToSize() * m_scale);
-      m_borderSurfaces[i].surface.scale = m_scale;
-      m_borderSurfaces[i].surface.size = m_borderSurfaces[i].geometry.ToSize();
+      borderSurface.geometry = SurfaceGeometry(static_cast<SurfaceIndex> (i), m_mainSurfaceSize);
+      borderSurface.windowRect = SurfaceWindowRegion(static_cast<SurfaceIndex> (i), m_mainSurfaceSize);
+      borderSurface.surface.buffer = GetBuffer(borderSurface.geometry.ToSize() * m_scale);
+      borderSurface.surface.scale = m_scale;
+      borderSurface.surface.size = borderSurface.geometry.ToSize();
+      auto opaqueRegionGeometry = SurfaceOpaqueRegion(static_cast<SurfaceIndex> (i), m_mainSurfaceSize);
       auto region = m_compositor.create_region();
-      region.add(0, 0, m_borderSurfaces[i].geometry.Width(), m_borderSurfaces[i].geometry.Height());
-      m_borderSurfaces[i].surface.wlSurface.set_opaque_region(region);
-      if (m_borderSurfaces[i].surface.wlSurface.can_set_buffer_scale())
+      region.add(opaqueRegionGeometry.x1, opaqueRegionGeometry.y1, opaqueRegionGeometry.Width(), opaqueRegionGeometry.Height());
+      borderSurface.surface.wlSurface.set_opaque_region(region);
+      if (borderSurface.surface.wlSurface.can_set_buffer_scale())
       {
-        m_borderSurfaces[i].surface.wlSurface.set_buffer_scale(m_scale);
+        borderSurface.surface.wlSurface.set_buffer_scale(m_scale);
       }
     }
   }
@@ -892,10 +940,11 @@ void CWindowDecorator::AllocateBuffers()
 
 void CWindowDecorator::Repaint()
 {
-  // Fill opaque black
+  // Fill transparent (outer) and color (inner)
   for (auto& borderSurface : m_borderSurfaces)
   {
-    std::fill_n(static_cast<std::uint32_t*> (borderSurface.surface.buffer.data), borderSurface.surface.buffer.size.Area(), Endian_SwapLE32(BORDER_COLOR));
+    std::fill_n(static_cast<std::uint32_t*> (borderSurface.surface.buffer.data), borderSurface.surface.buffer.size.Area(), Endian_SwapLE32(TRANSPARENT));
+    FillRectangle(borderSurface.surface, BORDER_COLOR, borderSurface.windowRect - CSizeInt{1, 1});
   }
   auto& topSurface = m_borderSurfaces[SURFACE_TOP].surface;
   auto innerBorderColor = m_buttonColor;
@@ -932,10 +981,21 @@ void CWindowDecorator::CommitAllBuffers()
     if (emplaceResult.second)
     {
       // Buffer was not pending already
-      auto iter = emplaceResult.first;
-      wlBuffer.on_release() = [this, iter]()
+      auto wlBufferC = reinterpret_cast<wl_buffer*> (wlBuffer.c_ptr());
+      // We can refer to the buffer neither by iterator (might be invalidated) nor by
+      // capturing the C++ instance in the lambda (would create a reference loop and
+      // never allow the object to be freed), so use the raw pointer for now
+      wlBuffer.on_release() = [this, wlBufferC]()
       {
         CSingleLock lock(m_pendingBuffersMutex);
+        // Construct a dummy object for searching the set
+        wayland::buffer_t findDummy(wlBufferC, wayland::proxy_t::wrapper_type::foreign);
+        auto iter = m_pendingBuffers.find(findDummy);
+        if (iter == m_pendingBuffers.end())
+        {
+          throw std::logic_error("Cannot release buffer that is not pending");
+        }
+
         // Do not erase again until buffer is reattached (should not happen anyway, just to be safe)
         // const_cast is OK since changing the function pointer does not affect
         // the key in the set

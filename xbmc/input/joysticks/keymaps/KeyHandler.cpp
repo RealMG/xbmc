@@ -1,30 +1,17 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "KeyHandler.h"
+#include "input/actions/ActionIDs.h"
+#include "input/actions/ActionTranslator.h"
 #include "input/joysticks/interfaces/IKeymapHandler.h"
 #include "input/joysticks/JoystickUtils.h"
-#include "input/Action.h"
-#include "input/ActionTranslator.h"
 #include "input/IKeymap.h"
-#include "input/IKeymapEnvironment.h"
 #include "interfaces/IActionListener.h"
 
 #include <algorithm>
@@ -59,6 +46,8 @@ void CKeyHandler::Reset()
   m_lastHoldTimeMs = 0;
   m_bActionSent = false;
   m_lastActionMs = 0;
+  m_activeWindowId = -1;
+  m_lastAction = CAction();
 }
 
 bool CKeyHandler::OnDigitalMotion(bool bPressed, unsigned int holdTimeMs)
@@ -72,6 +61,11 @@ bool CKeyHandler::OnAnalogMotion(float magnitude, unsigned int motionTimeMs)
   if (m_magnitude == 0.0f && magnitude == 0.0f)
     return false;
 
+  // Get actions for the key
+  const auto &actionGroup = m_keymap->GetActions(m_keyName);
+  const int windowId = actionGroup.windowId;
+  const auto &actions = actionGroup.actions;
+
   // Calculate press state
   const bool bPressed = IsPressed(magnitude);
   const bool bJustPressed = bPressed && !m_bHeld;
@@ -83,15 +77,16 @@ bool CKeyHandler::OnAnalogMotion(float magnitude, unsigned int motionTimeMs)
 
     // Record hold start time if just pressed
     m_holdStartTimeMs = motionTimeMs;
+
+    // Record window ID
+    if (windowId >= 0)
+      m_activeWindowId = windowId;
   }
 
   // Calculate holdtime relative to when magnitude crossed the threshold
   unsigned int holdTimeMs = 0;
   if (bPressed)
     holdTimeMs = motionTimeMs - m_holdStartTimeMs;
-
-  // Get actions for the key
-  const auto &actions = m_keymap->GetActions(m_keyName);
 
   // Give priority to actions with hotkeys
   std::vector<const KeymapAction*> actionsWithHotkeys;
@@ -102,28 +97,49 @@ bool CKeyHandler::OnAnalogMotion(float magnitude, unsigned int motionTimeMs)
       actionsWithHotkeys.emplace_back(&action);
   }
 
-  bool bHandled = HandleActions(std::move(actionsWithHotkeys), magnitude, holdTimeMs);
+  CAction dispatchAction = ProcessActions(std::move(actionsWithHotkeys), windowId, magnitude, holdTimeMs);
 
   // If that failed, try again with all actions
-  if (!bHandled)
+  if (dispatchAction.GetID() == ACTION_NONE)
   {
     std::vector<const KeymapAction*> allActions;
 
     for (const auto &action : actions)
       allActions.emplace_back(&action);
 
-    bHandled = HandleActions(std::move(allActions), magnitude, holdTimeMs);
+    dispatchAction = ProcessActions(std::move(allActions), windowId, magnitude, holdTimeMs);
+  }
+
+  // If specific action was sent last frame but not this one, send a release event
+  if (dispatchAction.GetID() != m_lastAction.GetID())
+  {
+    if (CActionTranslator::IsAnalog(m_lastAction.GetID()) && m_lastAction.GetAmount() > 0.0f)
+    {
+      m_lastAction.ClearAmount();
+      m_actionHandler->OnAction(m_lastAction);
+    }
+  }
+
+  // Dispatch action
+  bool bHandled = false;
+  if (dispatchAction.GetID() != ACTION_NONE)
+  {
+    m_actionHandler->OnAction(dispatchAction);
+    bHandled = true;
   }
 
   m_bHeld = bPressed;
   m_magnitude = magnitude;
   m_lastHoldTimeMs = holdTimeMs;
+  m_lastAction = dispatchAction;
 
   return bHandled;
 }
 
-bool CKeyHandler::HandleActions(std::vector<const KeymapAction*> actions, float magnitude, unsigned int holdTimeMs)
+CAction CKeyHandler::ProcessActions(std::vector<const KeymapAction*> actions, int windowId, float magnitude, unsigned int holdTimeMs)
 {
+  CAction dispatchAction;
+
   // Filter out actions without pressed hotkeys
   actions.erase(std::remove_if(actions.begin(), actions.end(),
     [this](const KeymapAction *action)
@@ -134,8 +150,6 @@ bool CKeyHandler::HandleActions(std::vector<const KeymapAction*> actions, float 
   if (actions.empty())
     return false;
 
-  bool bHandled = false;
-
   // Actions are sorted by holdtime, so the final action is the one with the
   // greatest holdtime
   const KeymapAction& finalAction = **actions.rbegin();
@@ -144,7 +158,7 @@ bool CKeyHandler::HandleActions(std::vector<const KeymapAction*> actions, float 
   const bool bHasDelay = (maxHoldTimeMs > 0);
   if (!bHasDelay)
   {
-    bHandled = HandleAction(finalAction, magnitude, holdTimeMs);
+    dispatchAction = ProcessAction(finalAction, windowId, magnitude, holdTimeMs);
   }
   else
   {
@@ -157,7 +171,7 @@ bool CKeyHandler::HandleActions(std::vector<const KeymapAction*> actions, float 
       else
         holdTimeMs -= finalAction.holdTimeMs;
 
-      bHandled = HandleAction(finalAction, magnitude, holdTimeMs);
+      dispatchAction = ProcessAction(finalAction, windowId, magnitude, holdTimeMs);
     }
     else
     {
@@ -167,16 +181,16 @@ bool CKeyHandler::HandleActions(std::vector<const KeymapAction*> actions, float 
 
       // If button was just released, send a release action
       if (bJustReleased)
-        bHandled = HandleRelease(actions);
+        dispatchAction = ProcessRelease(actions, windowId);
     }
   }
 
-  return bHandled;
+  return dispatchAction;
 }
 
-bool CKeyHandler::HandleRelease(std::vector<const KeymapAction*> actions)
+CAction CKeyHandler::ProcessRelease(std::vector<const KeymapAction*> actions, int windowId)
 {
-  bool bHandled = false;
+  CAction dispatchAction;
 
   // Use previous holdtime from before button release
   const unsigned int holdTimeMs = m_lastHoldTimeMs;
@@ -196,19 +210,25 @@ bool CKeyHandler::HandleRelease(std::vector<const KeymapAction*> actions)
 
     if (thisHoldTime <= holdTimeMs && holdTimeMs < nextHoldTime)
     {
-      bHandled = HandleAction(action, 1.0f, 0);
+      dispatchAction = ProcessAction(action, windowId, 1.0f, 0);
       break;
     }
   }
 
-  return bHandled;
+  return dispatchAction;
 }
 
-bool CKeyHandler::HandleAction(const KeymapAction& action, float magnitude, unsigned int holdTimeMs)
+CAction CKeyHandler::ProcessAction(const KeymapAction& action, int windowId, float magnitude, unsigned int holdTimeMs)
 {
+  CAction dispatchAction;
+
   bool bSendAction = false;
 
-  if (CActionTranslator::IsAnalog(action.actionId))
+  if (windowId != m_activeWindowId)
+  {
+    // Don't send actions if the window has changed since being pressed
+  }
+  else if (CActionTranslator::IsAnalog(action.actionId))
   {
     bSendAction = true;
   }
@@ -224,13 +244,13 @@ bool CKeyHandler::HandleAction(const KeymapAction& action, float magnitude, unsi
   if (bSendAction)
   {
     const CAction guiAction(action.actionId, magnitude, 0.0f, action.actionString, holdTimeMs);
-    m_actionHandler->OnAction(guiAction);
     m_keymapHandler->OnPress(m_keyName);
     m_bActionSent = true;
     m_lastActionMs = holdTimeMs;
+    dispatchAction = guiAction;
   }
 
-  return m_bActionSent;
+  return dispatchAction;
 }
 
 bool CKeyHandler::SendRepeatAction(unsigned int holdTimeMs)

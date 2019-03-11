@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <queue>
 #include <vector>
@@ -37,6 +26,24 @@ public:
   void Process() override;
 private:
   CJobManager  *m_jobManager;
+};
+
+template<typename F>
+class CLambdaJob : public CJob
+{
+public:
+  CLambdaJob(F&& f) : m_f(std::forward<F>(f)) {};
+  bool DoWork() override
+  {
+    m_f();
+    return true;
+  }
+  bool operator==(const CJob *job) const override
+  {
+    return this == job;
+  };
+private:
+  F m_f;
 };
 
 /*!
@@ -103,6 +110,15 @@ public:
   bool AddJob(CJob *job);
 
   /*!
+   \brief Add a function f to this job queue
+   */
+  template<typename F>
+  void Submit(F&& f)
+  {
+    AddJob(new CLambdaJob<F>(std::forward<F>(f)));
+  }
+
+  /*!
    \brief Cancel a job in the queue
    Cancels a job in the queue. Any job currently being processed may complete after this
    call has completed, but OnJobComplete will not be performed. If the job is only queued
@@ -143,10 +159,10 @@ public:
 protected:
   /*!
    \brief Returns if we still have jobs waiting to be processed
-   NOTE: This function does not take into account the jobs that are currently processing 
+   NOTE: This function does not take into account the jobs that are currently processing
    */
   bool QueueEmpty() const;
-  
+
 private:
   void QueueNextJob();
 
@@ -157,7 +173,7 @@ private:
 
   unsigned int m_jobsAtOnce;
   CJob::PRIORITY m_priority;
-  CCriticalSection m_section;
+  mutable CCriticalSection m_section;
   bool m_lifo;
 };
 
@@ -172,7 +188,7 @@ private:
 
  \sa CJob and IJobCallback
  */
-class CJobManager
+class CJobManager final
 {
   class CWorkItem
   {
@@ -205,20 +221,6 @@ class CJobManager
     unsigned int  m_id;
     IJobCallback *m_callback;
     CJob::PRIORITY m_priority;
-  };
-
-  template<typename F>
-  class CLambdaJob : public CJob
-  {
-  public:
-    CLambdaJob(F&& f) : m_f(std::forward<F>(f)) {};
-    bool DoWork() override
-    {
-      m_f();
-      return true;
-    }
-  private:
-    F m_f;
   };
 
 public:
@@ -309,6 +311,7 @@ public:
 protected:
   friend class CJobWorker;
   friend class CJob;
+  friend class CJobQueue;
 
   /*!
    \brief Get a new job to process. Blocks until a new job is available, or a timeout has occurred.
@@ -342,7 +345,6 @@ private:
   CJobManager();
   CJobManager(const CJobManager&) = delete;
   CJobManager const& operator=(CJobManager const&) = delete;
-  virtual ~CJobManager();
 
   /*! \brief Pop a job off the job queue and add to the processing queue ready to process
    \return the job to process, NULL if no jobs are available
@@ -364,7 +366,7 @@ private:
   Processing m_processing;
   Workers    m_workers;
 
-  CCriticalSection m_section;
+  mutable CCriticalSection m_section;
   CEvent           m_jobEvent;
   bool             m_running;
 };

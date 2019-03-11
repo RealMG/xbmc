@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2017 Christian Browet
- *      http://xbmc.org
+ *  Copyright (C) 2017 Christian Browet
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "JNIXBMCMediaSession.h"
@@ -28,6 +16,9 @@
 #include "Application.h"
 #include "messaging/ApplicationMessenger.h"
 #include "input/Key.h"
+
+#include "AndroidKey.h"
+#include <androidjni/KeyEvent.h>
 
 using namespace jni;
 
@@ -69,6 +60,7 @@ void CJNIXBMCMediaSession::RegisterNatives(JNIEnv* env)
       {"_onRewindRequested", "()V", (void*)&CJNIXBMCMediaSession::_onRewindRequested},
       {"_onStopRequested", "()V", (void*)&CJNIXBMCMediaSession::_onStopRequested},
       {"_onSeekRequested", "(J)V", (void*)&CJNIXBMCMediaSession::_onSeekRequested},
+      {"_onMediaButtonEvent", "(Landroid/content/Intent;)Z", (void*)&CJNIXBMCMediaSession::_onMediaButtonEvent},
     };
 
     env->RegisterNatives(cClass, methods, sizeof(methods)/sizeof(methods[0]));
@@ -109,61 +101,71 @@ void CJNIXBMCMediaSession::updateIntent(const CJNIIntent& intent)
 
 void CJNIXBMCMediaSession::OnPlayRequested()
 {
-  if (g_application.m_pPlayer->IsPlaying())
+  if (g_application.GetAppPlayer().IsPlaying())
   {
-    if (g_application.m_pPlayer->IsPaused())
+    if (g_application.GetAppPlayer().IsPaused())
       KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_GUI_ACTION, WINDOW_INVALID, -1, static_cast<void*>(new CAction(ACTION_PAUSE)));
   }
 }
 
 void CJNIXBMCMediaSession::OnPauseRequested()
 {
-  if (g_application.m_pPlayer->IsPlaying())
+  if (g_application.GetAppPlayer().IsPlaying())
   {
-    if (!g_application.m_pPlayer->IsPaused())
+    if (!g_application.GetAppPlayer().IsPaused())
       KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_GUI_ACTION, WINDOW_INVALID, -1, static_cast<void*>(new CAction(ACTION_PAUSE)));
   }
 }
 
 void CJNIXBMCMediaSession::OnNextRequested()
 {
-  if (g_application.m_pPlayer->IsPlaying())
+  if (g_application.GetAppPlayer().IsPlaying())
     KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_GUI_ACTION, WINDOW_INVALID, -1, static_cast<void*>(new CAction(ACTION_NEXT_ITEM)));
 }
 
 void CJNIXBMCMediaSession::OnPreviousRequested()
 {
-  if (g_application.m_pPlayer->IsPlaying())
+  if (g_application.GetAppPlayer().IsPlaying())
     KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_GUI_ACTION, WINDOW_INVALID, -1, static_cast<void*>(new CAction(ACTION_PREV_ITEM)));
 }
 
 void CJNIXBMCMediaSession::OnForwardRequested()
 {
-  if (g_application.m_pPlayer->IsPlaying())
+  if (g_application.GetAppPlayer().IsPlaying())
   {
-    if (!g_application.m_pPlayer->IsPaused())
+    if (!g_application.GetAppPlayer().IsPaused())
       KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_GUI_ACTION, WINDOW_INVALID, -1, static_cast<void*>(new CAction(ACTION_PLAYER_FORWARD)));
   }
 }
 
 void CJNIXBMCMediaSession::OnRewindRequested()
 {
-  if (g_application.m_pPlayer->IsPlaying())
+  if (g_application.GetAppPlayer().IsPlaying())
   {
-    if (!g_application.m_pPlayer->IsPaused())
+    if (!g_application.GetAppPlayer().IsPaused())
       KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_GUI_ACTION, WINDOW_INVALID, -1, static_cast<void*>(new CAction(ACTION_PLAYER_REWIND)));
   }
 }
 
 void CJNIXBMCMediaSession::OnStopRequested()
 {
-  if (g_application.m_pPlayer->IsPlaying())
+  if (g_application.GetAppPlayer().IsPlaying())
     KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_GUI_ACTION, WINDOW_INVALID, -1, static_cast<void*>(new CAction(ACTION_STOP)));
 }
 
 void CJNIXBMCMediaSession::OnSeekRequested(int64_t pos)
 {
   g_application.SeekTime(pos / 1000.0);
+}
+
+bool CJNIXBMCMediaSession::OnMediaButtonEvent(CJNIIntent intent)
+{
+  if (CXBMCApp::HasFocus())
+  {
+    CXBMCApp::get()->onReceive(intent);
+    return true;
+  }
+  return false;
 }
 
 bool CJNIXBMCMediaSession::isActive() const
@@ -177,7 +179,7 @@ void CJNIXBMCMediaSession::_onPlayRequested(JNIEnv* env, jobject thiz)
 {
   (void)env;
 
-  CJNIXBMCMediaSession *inst = find_instance(jhobject(thiz));
+  CJNIXBMCMediaSession *inst = find_instance(thiz);
   if (inst)
     inst->OnPlayRequested();
 }
@@ -186,7 +188,7 @@ void CJNIXBMCMediaSession::_onPauseRequested(JNIEnv* env, jobject thiz)
 {
   (void)env;
 
-  CJNIXBMCMediaSession *inst = find_instance(jhobject(thiz));
+  CJNIXBMCMediaSession *inst = find_instance(thiz);
   if (inst)
     inst->OnPauseRequested();
 }
@@ -195,7 +197,7 @@ void CJNIXBMCMediaSession::_onNextRequested(JNIEnv* env, jobject thiz)
 {
   (void)env;
 
-  CJNIXBMCMediaSession *inst = find_instance(jhobject(thiz));
+  CJNIXBMCMediaSession *inst = find_instance(thiz);
   if (inst)
     inst->OnNextRequested();
 }
@@ -204,7 +206,7 @@ void CJNIXBMCMediaSession::_onPreviousRequested(JNIEnv* env, jobject thiz)
 {
   (void)env;
 
-  CJNIXBMCMediaSession *inst = find_instance(jhobject(thiz));
+  CJNIXBMCMediaSession *inst = find_instance(thiz);
   if (inst)
     inst->OnPreviousRequested();
 }
@@ -213,7 +215,7 @@ void CJNIXBMCMediaSession::_onForwardRequested(JNIEnv* env, jobject thiz)
 {
   (void)env;
 
-  CJNIXBMCMediaSession *inst = find_instance(jhobject(thiz));
+  CJNIXBMCMediaSession *inst = find_instance(thiz);
   if (inst)
     inst->OnForwardRequested();
 }
@@ -222,7 +224,7 @@ void CJNIXBMCMediaSession::_onRewindRequested(JNIEnv* env, jobject thiz)
 {
   (void)env;
 
-  CJNIXBMCMediaSession *inst = find_instance(jhobject(thiz));
+  CJNIXBMCMediaSession *inst = find_instance(thiz);
   if (inst)
     inst->OnRewindRequested();
 }
@@ -231,7 +233,7 @@ void CJNIXBMCMediaSession::_onStopRequested(JNIEnv* env, jobject thiz)
 {
   (void)env;
 
-  CJNIXBMCMediaSession *inst = find_instance(jhobject(thiz));
+  CJNIXBMCMediaSession *inst = find_instance(thiz);
   if (inst)
     inst->OnStopRequested();
 }
@@ -240,7 +242,18 @@ void CJNIXBMCMediaSession::_onSeekRequested(JNIEnv* env, jobject thiz, jlong pos
 {
   (void)env;
 
-  CJNIXBMCMediaSession *inst = find_instance(jhobject(thiz));
+  CJNIXBMCMediaSession *inst = find_instance(thiz);
   if (inst)
     inst->OnSeekRequested(pos);
 }
+
+bool CJNIXBMCMediaSession::_onMediaButtonEvent(JNIEnv* env, jobject thiz, jobject intent)
+{
+  (void)env;
+
+  CJNIXBMCMediaSession *inst = find_instance(thiz);
+  if (inst)
+    return inst->OnMediaButtonEvent(CJNIIntent(jhobject::fromJNI(intent)));
+  return false;
+}
+

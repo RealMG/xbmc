@@ -1,26 +1,14 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
-#include "games/controllers/ControllerTypes.h"
-#include "input/joysticks/IInputHandler.h"
+#include "input/joysticks/interfaces/IInputHandler.h"
 
 namespace KODI
 {
@@ -31,7 +19,7 @@ namespace GAME
   class CInputSink : public JOYSTICK::IInputHandler
   {
   public:
-    explicit CInputSink(CGameClient &m_gameClient);
+    explicit CInputSink(JOYSTICK::IInputHandler* gameInput);
 
     virtual ~CInputSink() = default;
 
@@ -44,10 +32,12 @@ namespace GAME
     virtual bool OnButtonMotion(const std::string& feature, float magnitude, unsigned int motionTimeMs) override;
     virtual bool OnAnalogStickMotion(const std::string& feature, float x, float y, unsigned int motionTimeMs) override;
     virtual bool OnAccelerometerMotion(const std::string& feature, float x, float y, float z) override;
+    virtual bool OnWheelMotion(const std::string& feature, float position, unsigned int motionTimeMs) override;
+    virtual bool OnThrottleMotion(const std::string& feature, float position, unsigned int motionTimeMs) override;
 
   private:
-    const CGameClient &m_gameClient;
-    const ControllerPtr m_controller;
+    // Construction parameters
+    JOYSTICK::IInputHandler* m_gameInput;
   };
 }
 }

@@ -33,6 +33,9 @@ varying vec2      m_cordV;
 uniform vec2      m_step;
 uniform mat4      m_yuvmat;
 uniform float     m_stretch;
+uniform mat3 m_primMat;
+uniform float m_gammaDstInv;
+uniform float m_gammaSrc;
 uniform float m_alpha;
 
 vec2 stretch(vec2 pos)
@@ -56,7 +59,7 @@ vec2 stretch(vec2 pos)
 vec4 process()
 {
   vec4 rgb;
-#if defined(XBMC_YV12) || defined(XBMC_NV12)
+#if defined(XBMC_YV12)
 
   vec4 yuv;
   yuv.rgba = vec4( texture2D(m_sampY, stretch(m_cordY)).r
@@ -67,12 +70,11 @@ vec4 process()
   rgb   = m_yuvmat * yuv;
   rgb.a = m_alpha;
 
-#elif defined(XBMC_NV12_RRG)
+#elif defined(XBMC_NV12)
 
     vec4 yuv;
     yuv.rgba = vec4( texture2D(m_sampY, stretch(m_cordY)).r
-                   , texture2D(m_sampU, stretch(m_cordU)).r
-                   , texture2D(m_sampV, stretch(m_cordV)).g
+                   , texture2D(m_sampU, stretch(m_cordU)).rg
                    , 1.0 );
 
     rgb   = m_yuvmat * yuv;
@@ -117,6 +119,12 @@ vec4 process()
 
   rgb.a = m_alpha;
 
+#endif
+
+#if defined(XBMC_COL_CONVERSION)
+  rgb.rgb = pow(max(vec3(0), rgb.rgb), vec3(m_gammaSrc));
+  rgb.rgb = max(vec3(0), m_primMat * rgb.rgb);
+  rgb.rgb = pow(rgb.rgb, vec3(m_gammaDstInv));
 #endif
 
   return rgb;

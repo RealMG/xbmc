@@ -1,28 +1,19 @@
 /*
- *      Copyright (C) 2014-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 /*!
  \file
  \ingroup joystick
  */
+
+#include "input/InputTypes.h"
 
 #include <set>
 #include <string>
@@ -47,6 +38,9 @@ namespace JOYSTICK
    *   4) rumble motor
    *   5) relative pointer
    *   6) absolute pointer
+   *   7) wheel
+   *   8) throttle
+   *   9) keyboard key
    *
    * [*] All three driver primitives (buttons, hats and axes) have a state that
    *     can be represented using a single scalar value. For this reason,
@@ -61,6 +55,9 @@ namespace JOYSTICK
     MOTOR,
     RELPOINTER,
     ABSPOINTER,
+    WHEEL,
+    THROTTLE,
+    KEY,
   };
 
   /*!
@@ -82,40 +79,30 @@ namespace JOYSTICK
     KEY, // A keyboard key
     KEYPAD, // A key on a numeric keymap, including star and pound
     HARDWARE, // A button or functionality on the console
+    WHEEL,
+    JOYSTICK,
+    PADDLE,
   };
 
   /*!
    * \brief Direction arrows on the hat (directional pad)
    */
-  enum class HAT_DIRECTION
-  {
-    UNKNOWN = 0x0,
-    UP      = 0x1,
-    DOWN    = 0x2,
-    RIGHT   = 0x4,
-    LEFT    = 0x8,
-  };
-
-  /*!
-   * \brief Typedef for analog stick directions
-   */
-  using ANALOG_STICK_DIRECTION = HAT_DIRECTION;
+  using HAT_DIRECTION = INPUT::CARDINAL_DIRECTION;
 
   /*!
    * \brief States in which a hat can be
    */
-  enum class HAT_STATE
-  {
-    UNPRESSED = 0x0,    /*!< @brief no directions are pressed */
-    UP        = 0x1,    /*!< @brief only up is pressed */
-    DOWN      = 0x2,    /*!< @brief only down is pressed */
-    RIGHT     = 0x4,    /*!< @brief only right is pressed */
-    LEFT      = 0x8,    /*!< @brief only left is pressed */
-    RIGHTUP   = RIGHT | UP,
-    RIGHTDOWN = RIGHT | DOWN,
-    LEFTUP    = LEFT  | UP,
-    LEFTDOWN  = LEFT  | DOWN,
-  };
+  using HAT_STATE = INPUT::INTERCARDINAL_DIRECTION;
+
+  /*!
+   * \brief Typedef for analog stick directions
+   */
+  using ANALOG_STICK_DIRECTION = INPUT::CARDINAL_DIRECTION;
+
+  /*!
+   * \brief Directions of motion for a relative pointer
+   */
+  using RELATIVE_POINTER_DIRECTION = INPUT::CARDINAL_DIRECTION;
 
   /*!
    * \brief Directions in which a semiaxis can point
@@ -125,6 +112,26 @@ namespace JOYSTICK
     NEGATIVE = -1,  // semiaxis lies in the interval [-1.0, 0.0]
     ZERO     =  0,  // semiaxis is unknown or invalid
     POSITIVE =  1,  // semiaxis lies in the interval [0.0, 1.0]
+  };
+
+  /*!
+   * \brief Directions on a wheel
+   */
+  enum class WHEEL_DIRECTION
+  {
+    NONE,
+    RIGHT,
+    LEFT,
+  };
+
+  /*!
+   * \brief Directions on a throttle
+   */
+  enum class THROTTLE_DIRECTION
+  {
+    NONE,
+    UP,
+    DOWN,
   };
 
   /*!
@@ -140,15 +147,18 @@ namespace JOYSTICK
   /*!
   * \brief Type of driver primitive
   */
-  enum PRIMITIVE_TYPE
+  enum class PRIMITIVE_TYPE
   {
     UNKNOWN = 0, // primitive has no type (invalid)
     BUTTON,      // a digital button
     HAT,         // one of the four direction arrows on a D-pad
     SEMIAXIS,    // the positive or negative half of an axis
     MOTOR,       // a rumble motor
+    KEY,         // a keyboard key
+    MOUSE_BUTTON, // a mouse button
+    RELATIVE_POINTER, // a relative pointer, such as on a mouse
   };
-  
+
   /*!
    * \ingroup joystick
    * \brief Action entry in joystick.xml
@@ -170,6 +180,10 @@ namespace JOYSTICK
    * \ingroup joystick
    * \brief Container that sorts action entries by their holdtime
    */
-  using KeymapActions = std::set<KeymapAction>;
+  struct KeymapActionGroup
+  {
+    int windowId = -1;
+    std::set<KeymapAction> actions;
+  };
 }
 }

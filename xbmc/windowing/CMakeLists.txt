@@ -1,18 +1,15 @@
-set(SOURCES OSScreenSaver.cpp
-            WinEvents.cpp
+set(SOURCES GraphicContext.cpp
+            OSScreenSaver.cpp
+            Resolution.cpp
             WinSystem.cpp)
 
-set(HEADERS OSScreenSaver.h
-            WindowingFactory.h
+set(HEADERS GraphicContext.h
+            OSScreenSaver.h
+            Resolution.h
             WinEvents.h
             WinSystem.h
             XBMC_events.h
             VideoSync.h)
-
-if(CORE_SYSTEM_NAME STREQUAL linux AND NOT MIR_FOUND)
-  list(APPEND SOURCES WinEventsLinux.cpp)
-  list(APPEND HEADERS WinEventsLinux.h)
-endif()
 
 if(CORE_PLATFORM_NAME_LC STREQUAL rbpi)
   add_subdirectory(rpi)
