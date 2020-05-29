@@ -8,19 +8,19 @@
 
 #pragma once
 
+#include "AddonClass.h"
+#include "AddonString.h"
+#include "Alternative.h"
+#include "Dictionary.h"
+#include "FileItem.h"
+#include "InfoTagMusic.h"
+#include "InfoTagVideo.h"
+#include "ListItem.h"
+#include "Tuple.h"
+#include "commons/Exception.h"
+
 #include <map>
 #include <vector>
-
-#include "AddonClass.h"
-#include "Tuple.h"
-#include "Dictionary.h"
-#include "Alternative.h"
-#include "ListItem.h"
-#include "FileItem.h"
-#include "AddonString.h"
-#include "commons/Exception.h"
-#include "InfoTagVideo.h"
-#include "InfoTagMusic.h"
 
 
 namespace XBMCAddon
@@ -48,17 +48,16 @@ namespace XBMCAddon
     ///
     /// The list item control is used for creating item lists in Kodi
     ///
-    /// \python_class{ ListItem([label, label2, iconImage, thumbnailImage, path]) }
+    /// \python_class{ ListItem([label, label2, path]) }
     ///
     /// @param label                [opt] string
     /// @param label2               [opt] string
-    /// @param iconImage            __Deprecated. Use setArt__
-    /// @param thumbnailImage       __Deprecated. Use setArt__
     /// @param path                 [opt] string
     ///
     ///
     ///-----------------------------------------------------------------------
     /// @python_v16 **iconImage** and **thumbnailImage** are deprecated. Use **setArt()**.
+    /// @python_v19 Removed **iconImage** and **thumbnailImage**. Use **setArt()**.
     ///
     /// **Example:**
     /// ~~~~~~~~~~~~~{.py}
@@ -76,8 +75,6 @@ namespace XBMCAddon
 
       ListItem(const String& label = emptyString,
                const String& label2 = emptyString,
-               const String& iconImage = emptyString,
-               const String& thumbnailImage = emptyString,
                const String& path = emptyString,
                bool offscreen = false);
 
@@ -194,30 +191,6 @@ namespace XBMCAddon
       setLabel2(...);
 #else
       void setLabel2(const String& label);
-#endif
-
-#ifdef DOXYGEN_SHOULD_USE_THIS
-      ///
-      /// \ingroup python_xbmcgui_listitem
-      /// @brief \python_func{ setIconImage(iconImage) }
-      ///-----------------------------------------------------------------------
-      /// @python_v16 Deprecated. Use **setArt()**.
-      ///
-      setIconImage(...);
-#else
-      void setIconImage(const String& iconImage);
-#endif
-
-#ifdef DOXYGEN_SHOULD_USE_THIS
-      ///
-      /// \ingroup python_xbmcgui_listitem
-      /// @brief \python_func{ setThumbnailImage(thumbFilename) }
-      ///-----------------------------------------------------------------------
-      /// @python_v16 Deprecated. Use **setArt()**.
-      ///
-      setThumbnailImage(...);
-#else
-      void setThumbnailImage(const String& thumbFilename);
 #endif
 
 #ifdef DOXYGEN_SHOULD_USE_THIS
@@ -761,7 +734,7 @@ namespace XBMCAddon
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ setAvailableFanart(images) }
       ///-----------------------------------------------------------------------
-      /// @brief Set available images (needed for scrapers)
+      /// @brief Set available images (needed for video scrapers)
       ///
       /// @param images            list of dictionaries (see below for relevant keys)
       ///
@@ -794,10 +767,11 @@ namespace XBMCAddon
       /// \ingroup python_xbmcgui_listitem
       /// @brief \python_func{ addAvailableArtwork(images) }
       ///-----------------------------------------------------------------------
-      /// @brief Add an image to available artworks (needed for scrapers)
+      /// @brief Add an image to available artworks (needed for video scrapers)
       ///
       /// @param url            string (image path url)
       /// @param art_type       string (image type)
+      /// @param preview        [opt] string (image preview path url)
       /// @param referrer       [opt] string (referrer url)
       /// @param cache          [opt] string (filename in cache)
       /// @param post           [opt] bool (use post to retrieve the image, default false)
@@ -807,6 +781,7 @@ namespace XBMCAddon
       ///
       ///-----------------------------------------------------------------------
       /// @python_v18 New function added.
+      /// @python_v19 New param added (preview).
       ///
       /// **Example:**
       /// ~~~~~~~~~~~~~{.py}
@@ -817,7 +792,7 @@ namespace XBMCAddon
       ///
       addAvailableArtwork(...);
 #else
-      void addAvailableArtwork(std::string url, std::string art_type = "", std::string referrer = "", std::string cache = "", bool post = false, bool isgz = false, int season = -1);
+      void addAvailableArtwork(std::string url, std::string art_type = "", std::string preview = "", std::string referrer = "", std::string cache = "", bool post = false, bool isgz = false, int season = -1);
 #endif
 
 #ifdef DOXYGEN_SHOULD_USE_THIS
@@ -1071,45 +1046,6 @@ namespace XBMCAddon
       setSubtitles(...);
 #else
       void setSubtitles(const std::vector<String>& subtitleFiles);
-#endif
-
-#ifdef DOXYGEN_SHOULD_USE_THIS
-      ///
-      /// \ingroup python_xbmcgui_listitem
-      /// @brief \python_func{ getdescription() }
-      ///-----------------------------------------------------------------------
-      /// @python_v17 Deprecated.
-      ///
-      ///
-      getdescription();
-#else
-      String getdescription();
-#endif
-
-#ifdef DOXYGEN_SHOULD_USE_THIS
-      ///
-      /// \ingroup python_xbmcgui_listitem
-      /// @brief \python_func{ getduration() }
-      ///-----------------------------------------------------------------------
-      /// @python_v17 Deprecated. Use **InfoTagMusic**.
-      ///
-      ///
-      getduration();
-#else
-      String getduration();
-#endif
-
-#ifdef DOXYGEN_SHOULD_USE_THIS
-      ///
-      /// \ingroup python_xbmcgui_listitem
-      /// @brief \python_func{ getfilename() }
-      ///-----------------------------------------------------------------------
-      /// @python_v17 Deprecated.
-      ///
-      ///
-      getfilename();
-#else
-      String getfilename();
 #endif
 
 #ifdef DOXYGEN_SHOULD_USE_THIS

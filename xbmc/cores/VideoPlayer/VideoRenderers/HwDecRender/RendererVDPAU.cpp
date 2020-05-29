@@ -7,14 +7,15 @@
  */
 
 #include "RendererVDPAU.h"
+
 #include "../RenderFactory.h"
 #include "ServiceBroker.h"
 #include "cores/VideoPlayer/DVDCodecs/Video/VDPAU.h"
 #include "settings/AdvancedSettings.h"
 #include "settings/Settings.h"
 #include "settings/SettingsComponent.h"
-#include "utils/log.h"
 #include "utils/GLUtils.h"
+#include "utils/log.h"
 
 using namespace VDPAU;
 
@@ -190,7 +191,7 @@ bool CRendererVDPAU::LoadShadersHook()
 {
   if (!m_isYuv)
   {
-    CLog::Log(LOGNOTICE, "GL: Using VDPAU render method");
+    CLog::Log(LOGINFO, "GL: Using VDPAU render method");
     m_renderMethod = RENDER_CUSTOM;
     m_fullRange = false;
     return true;

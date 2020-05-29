@@ -6,17 +6,18 @@
  *  See LICENSES/README.md for more information.
  */
 
+#include "AndroidJoystickState.h"
+
+#include "AndroidJoystickTranslator.h"
+#include "threads/SingleLock.h"
+#include "utils/StringUtils.h"
+#include "utils/log.h"
+
 #include <algorithm>
 #include <utility>
 
 #include <android/input.h>
-
-#include "AndroidJoystickState.h"
-#include "AndroidJoystickTranslator.h"
-#include "androidjni/View.h"
-#include "threads/SingleLock.h"
-#include "utils/log.h"
-#include "utils/StringUtils.h"
+#include <androidjni/View.h>
 
 using namespace PERIPHERALS;
 
@@ -62,10 +63,6 @@ static void MapAxisIds(int axisId, int primaryAxisId, int secondaryAxisId, std::
   else if (axisId == secondaryAxisId)
     axisIds.insert(axisIds.begin(), primaryAxisId);
 }
-
-CAndroidJoystickState::CAndroidJoystickState()
-  : m_deviceId(-1)
-{ }
 
 CAndroidJoystickState::CAndroidJoystickState(CAndroidJoystickState &&other) :
     m_deviceId(other.m_deviceId),

@@ -6,19 +6,20 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include <algorithm>
-#include <cmath>
-
 #include "GenericTouchInputHandler.h"
+
 #include "input/touch/generic/GenericTouchPinchDetector.h"
 #include "input/touch/generic/GenericTouchRotateDetector.h"
 #include "input/touch/generic/GenericTouchSwipeDetector.h"
 #include "threads/SingleLock.h"
 #include "utils/log.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace
 {
-constexpr int TOUCH_HOLD_TIMEOUT = 1000;
+constexpr int TOUCH_HOLD_TIMEOUT = 500;
 }
 
 CGenericTouchInputHandler::CGenericTouchInputHandler()

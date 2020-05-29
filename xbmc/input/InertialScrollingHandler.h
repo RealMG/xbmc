@@ -8,10 +8,10 @@
 
 #pragma once
 
-#include <deque>
-
 #include "utils/Geometry.h"
 #include "utils/Vector.h"
+
+#include <deque>
 
 class CApplication;
 class CAction;
@@ -45,4 +45,5 @@ class CInertialScrollingHandler
     CPoint        m_iLastGesturePoint;
     CVector       m_inertialDeacceleration;
     unsigned int  m_inertialStartTime = 0;
+    float m_timeToZero = 0.0f;
 };

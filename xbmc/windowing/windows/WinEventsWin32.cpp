@@ -41,8 +41,6 @@
 #include "WinKeyMap.h"
 #include "WinEventsWin32.h"
 
-#ifdef TARGET_WINDOWS
-
 using namespace KODI::MESSAGING;
 
 HWND g_hWnd = nullptr;
@@ -277,7 +275,7 @@ LRESULT CALLBACK CWinEventsWin32::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, L
         if (UnregisterDeviceNotification(hDeviceNotify))
           hDeviceNotify = nullptr;
         else
-          CLog::LogF(LOGNOTICE, "UnregisterDeviceNotification failed (%d)", GetLastError());
+          CLog::LogF(LOGINFO, "UnregisterDeviceNotification failed (%d)", GetLastError());
       }
       newEvent.type = XBMC_QUIT;
       if (appPort)
@@ -775,7 +773,7 @@ LRESULT CALLBACK CWinEventsWin32::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, L
                   CMediaSource share;
                   share.strPath = strdrive;
                   share.strName = share.strPath;
-                  g_mediaManager.RemoveAutoSource(share);
+                  CServiceBroker::GetMediaManager().RemoveAutoSource(share);
                 }
               }
               else
@@ -993,5 +991,3 @@ void CWinEventsWin32::OnGesture(HWND hWnd, LPARAM lParam)
   if(DX::Windowing()->PtrCloseGestureInfoHandle)
     DX::Windowing()->PtrCloseGestureInfoHandle(reinterpret_cast<HGESTUREINFO>(lParam));
 }
-
-#endif

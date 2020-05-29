@@ -7,15 +7,16 @@
  */
 
 #include "VideoTagLoaderNFO.h"
+
 #include "FileItem.h"
+#include "NfoFile.h"
 #include "filesystem/Directory.h"
 #include "filesystem/File.h"
 #include "filesystem/StackDirectory.h"
-#include "NfoFile.h"
-#include "video/VideoInfoTag.h"
-#include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
+#include "utils/log.h"
+#include "video/VideoInfoTag.h"
 
 using namespace XFILE;
 
@@ -94,7 +95,7 @@ std::string CVideoTagLoaderNFO::FindNFO(const CFileItem& item,
     if (URIUtils::IsInRAR(item.GetPath())) // we have a rarred item - we want to check outside the rars
     {
       CFileItem item2(item);
-      CURL url(m_item.GetPath());
+      CURL url(item.GetPath());
       std::string strPath = URIUtils::GetDirectory(url.GetHostName());
       item2.SetPath(URIUtils::AddFileToFolder(strPath,
                                             URIUtils::GetFileName(item.GetPath())));

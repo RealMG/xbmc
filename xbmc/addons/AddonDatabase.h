@@ -8,13 +8,13 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
-
+#include "AddonBuilder.h"
+#include "FileItem.h"
 #include "addons/Addon.h"
 #include "dbwrappers/Database.h"
-#include "FileItem.h"
-#include "AddonBuilder.h"
+
+#include <string>
+#include <vector>
 
 class CAddonDatabase : public CDatabase
 {
@@ -52,10 +52,10 @@ public:
    \param id id of the repository
    \returns true on success, false on error or if repository have never been synced.
    */
-  bool GetRepositoryContent(const std::string& id, ADDON::VECADDONS& addons);
+  bool GetRepositoryContent(const std::string& id, ADDON::VECADDONS& addons) const;
 
   /*! Get addons across all repositories */
-  bool GetRepositoryContent(ADDON::VECADDONS& addons);
+  bool GetRepositoryContent(ADDON::VECADDONS& addons) const;
 
   /*!
    \brief Set repo last checked date, and create the repo if needed
@@ -132,12 +132,11 @@ public:
                      const std::set<std::string>& system,
                      const std::set<std::string>& optional);
 
-  void GetInstalled(std::vector<ADDON::CAddonBuilder>& addons);
-
   bool SetLastUpdated(const std::string& addonId, const CDateTime& dateTime);
   bool SetOrigin(const std::string& addonId, const std::string& origin);
   bool SetLastUsed(const std::string& addonId, const CDateTime& dateTime);
 
+  void GetInstallData(const ADDON::AddonInfoPtr& addon);
 
 protected:
   void CreateTables() override;

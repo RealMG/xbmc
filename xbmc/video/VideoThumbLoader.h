@@ -8,11 +8,12 @@
 
 #pragma once
 
-#include <map>
-#include <vector>
+#include "FileItem.h"
 #include "ThumbLoader.h"
 #include "utils/JobManager.h"
-#include "FileItem.h"
+
+#include <map>
+#include <vector>
 
 class CStreamDetails;
 class CVideoDatabase;
@@ -111,13 +112,6 @@ public:
    \sa CImageLoader, IJobCallback
    */
   void OnJobComplete(unsigned int jobID, bool success, CJob *job) override;
-
-  /*! \brief set the artwork map for an item
-   In addition, sets the standard fallbacks.
-   \param item the item on which to set art.
-   \param artwork the artwork map.
-   */
-  static void SetArt(CFileItem &item, const std::map<std::string, std::string> &artwork);
 
   static bool GetEmbeddedThumb(const std::string& path,
                                const std::string& type,

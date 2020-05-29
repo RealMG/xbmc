@@ -7,7 +7,8 @@
  */
 
 #include "utils/log.h"
-#include "assert.h"
+
+#include <assert.h>
 
 #ifndef UINT16_MAX
 #define UINT16_MAX             (65535U)
@@ -388,7 +389,7 @@ bool CBitstreamConverter::Open(enum AVCodecID codec, uint8_t *in_extradata, int 
           }
           else
           {
-            CLog::Log(LOGNOTICE, "CBitstreamConverter::Open invalid avcC atom data");
+            CLog::Log(LOGINFO, "CBitstreamConverter::Open invalid avcC atom data");
             return false;
           }
         }
@@ -425,7 +426,7 @@ bool CBitstreamConverter::Open(enum AVCodecID codec, uint8_t *in_extradata, int 
       // valid hvcC data (bitstream) always starts with the value 1 (version)
       if(m_to_annexb)
       {
-       /** @todo from Amlogic
+       /**
         * It seems the extradata is encoded as hvcC format.
         * Temporarily, we support configurationVersion==0 until 14496-15 3rd
         * is finalized. When finalized, configurationVersion will be 1 and we
@@ -458,7 +459,7 @@ bool CBitstreamConverter::Open(enum AVCodecID codec, uint8_t *in_extradata, int 
           }
           else
           {
-            CLog::Log(LOGNOTICE, "CBitstreamConverter::Open invalid hvcC atom data");
+            CLog::Log(LOGINFO, "CBitstreamConverter::Open invalid hvcC atom data");
             return false;
           }
         }

@@ -9,6 +9,7 @@
 #include "WinSystem.h"
 #include "ServiceBroker.h"
 #include "guilib/DispResource.h"
+#include "powermanagement/DPMSSupport.h"
 #include "windowing/GraphicContext.h"
 #include "settings/DisplaySettings.h"
 #include "settings/lib/Setting.h"
@@ -18,6 +19,8 @@
 #if HAS_GLES
 #include "guilib/GUIFontTTFGL.h"
 #endif
+
+const char* CWinSystemBase::SETTING_WINSYSTEM_IS_HDR_DISPLAY = "winsystem.ishdrdisplay";
 
 CWinSystemBase::CWinSystemBase()
 {
@@ -263,4 +266,9 @@ void CWinSystemBase::DriveRenderLoop()
 CGraphicContext& CWinSystemBase::GetGfxContext()
 {
   return *m_gfxContext;
+}
+
+std::shared_ptr<CDPMSSupport> CWinSystemBase::GetDPMSManager()
+{
+  return m_dpms;
 }

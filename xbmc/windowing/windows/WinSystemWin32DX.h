@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "easyhook/easyhook.h"
 #include "rendering/dx/RenderSystemDX.h"
 #include "windowing/windows/WinSystemWin32.h"
 
@@ -30,6 +29,7 @@ public:
   bool DPIChanged(WORD dpi, RECT windowRect) const override;
   void SetWindow(HWND hWnd) const;
   bool DestroyRenderSystem() override;
+  void* GetHWContext() override { return m_deviceResources->GetD3DContext(); }
 
   void UninitHooks();
   void InitHooks(IDXGIOutput* pOutput);
@@ -74,6 +74,5 @@ protected:
   bool ChangeResolution(const RESOLUTION_INFO& res, bool forceChange = false) override;
 
   HMODULE m_hDriverModule;
-  TRACED_HOOK_HANDLE m_hHook;
 };
 

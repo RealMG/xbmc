@@ -8,36 +8,28 @@
 
 #include "ButtonTranslator.h"
 
-#include <algorithm>
-#include <utility>
-
 #include "AppTranslator.h"
 #include "CustomControllerTranslator.h"
+#include "FileItem.h"
 #include "GamepadTranslator.h"
-#include "IRTranslator.h"
 #include "IButtonMapper.h"
+#include "IRTranslator.h"
 #include "Key.h"
 #include "KeyboardTranslator.h"
+#include "Util.h"
 #include "WindowTranslator.h"
 #include "filesystem/Directory.h"
 #include "guilib/WindowIDs.h"
 #include "input/actions/ActionIDs.h"
 #include "input/actions/ActionTranslator.h"
 #include "input/mouse/MouseTranslator.h"
-#include "utils/log.h"
 #include "utils/XBMCTinyXML.h"
-#include "FileItem.h"
-#include "Util.h"
+#include "utils/log.h"
+
+#include <algorithm>
+#include <utility>
 
 using namespace KODI;
-
-CButtonTranslator::CButtonTranslator()
-{
-}
-
-CButtonTranslator::~CButtonTranslator()
-{
-}
 
 // Add the supplied device name to the list of connected devices
 bool CButtonTranslator::AddDevice(const std::string& strDevice)
@@ -100,7 +92,6 @@ bool CButtonTranslator::Load()
       }
 
       // Load mappings for any HID devices we have connected
-      std::list<std::string>::iterator it;
       for (const auto& device : m_deviceList)
       {
         std::string devicedir = dir;
@@ -168,7 +159,7 @@ bool CButtonTranslator::LoadKeymap(const std::string &keymapPath)
       const char *szWindow = pWindow->Value();
       if (szWindow != nullptr)
       {
-        if (strcmpi(szWindow, "global") == 0)
+        if (StringUtils::CompareNoCase(szWindow, "global") == 0)
           windowID = -1;
         else
           windowID = CWindowTranslator::TranslateWindow(szWindow);
@@ -414,5 +405,29 @@ void CButtonTranslator::UnregisterMapper(IButtonMapper *mapper)
       m_buttonMappers.erase(it);
       break;
     }
+  }
+}
+
+uint32_t CButtonTranslator::TranslateString(std::string strMap, std::string strButton)
+{
+  if (strMap == "KB") // standard keyboard map
+  {
+    return CKeyboardTranslator::TranslateString(strButton);
+  }
+  else if (strMap == "XG") // xbox gamepad map
+  {
+    return CGamepadTranslator::TranslateString(strButton);
+  }
+  else if (strMap == "R1") // xbox remote map
+  {
+    return CIRTranslator::TranslateString(strButton);
+  }
+  else if (strMap == "R2") // xbox universal remote map
+  {
+    return CIRTranslator::TranslateUniversalRemoteString(strButton);
+  }
+  else
+  {
+    return 0;
   }
 }

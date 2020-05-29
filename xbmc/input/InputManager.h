@@ -8,20 +8,20 @@
 
 #pragma once
 
-#include <map>
-#include <memory>
-#include <string>
-#include <vector>
-
-#include "windowing/XBMC_events.h"
-#include "input/actions/Action.h"
-#include "input/mouse/interfaces/IMouseInputProvider.h"
-#include "input/mouse/MouseStat.h"
 #include "input/KeyboardStat.h"
+#include "input/actions/Action.h"
+#include "input/mouse/MouseStat.h"
+#include "input/mouse/interfaces/IMouseInputProvider.h"
 #include "interfaces/IActionListener.h"
 #include "settings/lib/ISettingCallback.h"
 #include "threads/CriticalSection.h"
 #include "utils/Observer.h"
+#include "windowing/XBMC_events.h"
+
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
 class CAppParamParser;
 class CButtonTranslator;
@@ -167,6 +167,11 @@ public:
    */
   void SetMouseResolution(int maxX, int maxY, float speedX, float speedY);
 
+  /*! \brief Get the status of the controller-enable setting
+   * \return True if controller input is enabled for the UI, false otherwise
+   */
+  bool IsControllerEnabled() const;
+
   /*! \brief Returns whether or not we can handle a given built-in command.
    *
    */
@@ -212,10 +217,10 @@ public:
   void QueueAction(const CAction& action);
 
   // implementation of ISettingCallback
-  virtual void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
+  void OnSettingChanged(std::shared_ptr<const CSetting> setting) override;
 
   // implementation of IActionListener
-  virtual bool OnAction(const CAction& action) override;
+  bool OnAction(const CAction& action) override;
 
   void RegisterKeyboardDriverHandler(KODI::KEYBOARD::IKeyboardDriverHandler* handler);
   void UnregisterKeyboardDriverHandler(KODI::KEYBOARD::IKeyboardDriverHandler* handler);
@@ -289,6 +294,12 @@ private:
   std::vector<KODI::MOUSE::IMouseDriverHandler*> m_mouseHandlers;
 
   std::unique_ptr<KODI::KEYBOARD::IKeyboardDriverHandler> m_keyboardEasterEgg;
+
+  // Input state
+  bool m_enableController = true;
+
+  // Settings
+  static const std::string SETTING_INPUT_ENABLE_CONTROLLER;
 };
 
 /// \}

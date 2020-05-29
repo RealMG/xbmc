@@ -8,10 +8,10 @@
 
 #pragma once
 
+#include "input/touch/ITouchInputHandling.h"
+
 #include <atomic>
 #include <stdint.h>
-
-#include "input/touch/ITouchInputHandling.h"
 
 /*!
  * \ingroup touch
@@ -86,6 +86,7 @@ public:
   virtual bool UpdateTouchPointer(int32_t pointer, float x, float y, int64_t time, float size = 0.0f) { return false; }
 
   void SetScreenDPI(float dpi) { if (dpi > 0.0f) m_dpi = dpi; }
+  float GetScreenDPI() { return m_dpi; }
 
 protected:
   /*!

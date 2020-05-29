@@ -15,7 +15,6 @@
 #include <dxgi1_3.h>
 #else
 #include <dxgi1_2.h>
-#include <easyhook/easyhook.h>
 #endif
 #include <functional>
 #include <memory>
@@ -64,10 +63,9 @@ namespace DX
     IDXGISwapChain1* GetSwapChain() const { return m_swapChain.Get(); }
     IDXGIFactory2* GetIDXGIFactory2() const { return m_dxgiFactory.Get(); }
     IDXGIAdapter1* GetAdapter() const { return m_adapter.Get(); }
-    ID3D11RenderTargetView* GetBackBufferRTV();
     ID3D11DepthStencilView* GetDSV() const { return m_d3dDepthStencilView.Get(); }
     D3D_FEATURE_LEVEL GetDeviceFeatureLevel() const { return m_d3dFeatureLevel; }
-    CD3DTexture* GetBackBuffer() { return &m_backBufferTex; }
+    CD3DTexture& GetBackBuffer() { return m_backBufferTex; }
 
     void GetOutput(IDXGIOutput** ppOutput) const;
     void GetAdapterDesc(DXGI_ADAPTER_DESC *desc) const;

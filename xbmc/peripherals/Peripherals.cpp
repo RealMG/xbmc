@@ -97,7 +97,7 @@ void CPeripherals::Initialise()
 {
   Clear();
 
-#if !defined(TARGET_DARWIN_IOS)
+#if !defined(TARGET_DARWIN_EMBEDDED)
   CDirectory::Create("special://profile/peripheral_data");
 
   /* load mappings from peripherals.xml */
@@ -487,7 +487,7 @@ bool CPeripherals::LoadMappings()
   }
 
   TiXmlElement *pRootElement = xmlDoc.RootElement();
-  if (!pRootElement || strcmpi(pRootElement->Value(), "peripherals") != 0)
+  if (!pRootElement || StringUtils::CompareNoCase(pRootElement->Value(), "peripherals") != 0)
   {
     CLog::Log(LOGERROR, "%s - peripherals.xml does not contain <peripherals>", __FUNCTION__);
     return false;
@@ -575,11 +575,11 @@ void CPeripherals::GetSettingsFromMappingsFile(TiXmlElement *xmlNode, std::map<s
       std::string strEnums = XMLUtils::GetAttribute(currentNode, "lvalues");
       if (!strEnums.empty())
       {
-        std::vector< std::pair<int,int> > enums;
+        TranslatableIntegerSettingOptions enums;
         std::vector<std::string> valuesVec;
         StringUtils::Tokenize(strEnums, valuesVec, "|");
         for (unsigned int i = 0; i < valuesVec.size(); i++)
-          enums.push_back(std::make_pair(atoi(valuesVec[i].c_str()), atoi(valuesVec[i].c_str())));
+          enums.emplace_back(atoi(valuesVec[i].c_str()), atoi(valuesVec[i].c_str()));
         int iValue = currentNode->Attribute("value") ? atoi(currentNode->Attribute("value")) : 0;
         setting = std::make_shared<CSettingInt>(strKey, iLabelId, iValue, enums);
       }

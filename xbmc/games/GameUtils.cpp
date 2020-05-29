@@ -7,19 +7,20 @@
  */
 
 #include "GameUtils.h"
-#include "addons/Addon.h"
-#include "addons/AddonManager.h"
-#include "addons/BinaryAddonCache.h"
-#include "games/addons/GameClient.h"
-#include "games/dialogs/GUIDialogSelectGameClient.h"
-#include "games/tags/GameInfoTag.h"
-#include "filesystem/SpecialProtocol.h"
-#include "messaging/helpers/DialogOKHelper.h"
-#include "utils/StringUtils.h"
-#include "utils/URIUtils.h"
+
 #include "FileItem.h"
 #include "ServiceBroker.h"
 #include "URL.h"
+#include "addons/Addon.h"
+#include "addons/AddonManager.h"
+#include "addons/BinaryAddonCache.h"
+#include "filesystem/SpecialProtocol.h"
+#include "games/addons/GameClient.h"
+#include "games/dialogs/GUIDialogSelectGameClient.h"
+#include "games/tags/GameInfoTag.h"
+#include "messaging/helpers/DialogOKHelper.h"
+#include "utils/StringUtils.h"
+#include "utils/URIUtils.h"
 
 #include <algorithm>
 
@@ -227,7 +228,7 @@ bool CGameUtils::IsStandaloneGame(const ADDON::AddonPtr& addon)
     }
     case ADDON_SCRIPT:
     {
-      return addon->IsType(ADDON_GAME);
+      return addon->HasType(ADDON_GAME);
     }
     default:
       break;

@@ -6,14 +6,15 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.h"
-#include "cores/VideoPlayer/VideoRenderers/RenderFactory.h"
-
-#include "OptionalsReg.h"
-#include "utils/log.h"
 #include "WinSystemGbmEGLContext.h"
 
+#include "OptionalsReg.h"
+#include "cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.h"
+#include "cores/VideoPlayer/VideoRenderers/RenderFactory.h"
+#include "utils/log.h"
+
 using namespace KODI::WINDOWING::GBM;
+using namespace KODI::WINDOWING::LINUX;
 
 bool CWinSystemGbmEGLContext::InitWindowSystemEGL(EGLint renderableType, EGLint apiType)
 {
@@ -37,17 +38,7 @@ bool CWinSystemGbmEGLContext::InitWindowSystemEGL(EGLint renderableType, EGLint 
   // prefer alpha visual id, fallback to non-alpha visual id
   if (!m_eglContext.ChooseConfig(renderableType, CDRMUtils::FourCCWithAlpha(visualId)) &&
       !m_eglContext.ChooseConfig(renderableType, CDRMUtils::FourCCWithoutAlpha(visualId)))
-  {
-    // fallback to 8bit format if no EGL config was found for 10bit
-    m_DRM->GetGuiPlane()->useFallbackFormat = true;
-    visualId = m_DRM->GetGuiPlane()->GetFormat();
-
-    if (!m_eglContext.ChooseConfig(renderableType, CDRMUtils::FourCCWithAlpha(visualId)) &&
-        !m_eglContext.ChooseConfig(renderableType, CDRMUtils::FourCCWithoutAlpha(visualId)))
-    {
-      return false;
-    }
-  }
+    return false;
 
   if (!CreateContext())
   {
@@ -127,24 +118,4 @@ bool CWinSystemGbmEGLContext::DestroyWindowSystem()
 void CWinSystemGbmEGLContext::delete_CVaapiProxy::operator()(CVaapiProxy *p) const
 {
   VaapiProxyDelete(p);
-}
-
-EGLDisplay CWinSystemGbmEGLContext::GetEGLDisplay() const
-{
-  return m_eglContext.GetEGLDisplay();
-}
-
-EGLSurface CWinSystemGbmEGLContext::GetEGLSurface() const
-{
-  return m_eglContext.GetEGLSurface();
-}
-
-EGLContext CWinSystemGbmEGLContext::GetEGLContext() const
-{
-  return m_eglContext.GetEGLContext();
-}
-
-EGLConfig  CWinSystemGbmEGLContext::GetEGLConfig() const
-{
-  return m_eglContext.GetEGLConfig();
 }

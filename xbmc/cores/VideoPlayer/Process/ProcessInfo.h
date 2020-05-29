@@ -8,10 +8,11 @@
 
 #pragma once
 
-#include "VideoBuffer.h"
-#include "cores/VideoSettings.h"
+#include "cores/VideoPlayer/Buffers/VideoBuffer.h"
 #include "cores/VideoPlayer/VideoRenderers/RenderInfo.h"
+#include "cores/VideoSettings.h"
 #include "threads/CriticalSection.h"
+
 #include <atomic>
 #include <list>
 #include <map>

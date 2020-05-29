@@ -7,20 +7,21 @@
  */
 
 #include "PeripheralAddon.h"
+
 #include "PeripheralAddonTranslator.h"
 #include "addons/AddonManager.h"
 #include "filesystem/Directory.h"
 #include "filesystem/SpecialProtocol.h"
 #include "games/controllers/Controller.h"
 #include "games/controllers/ControllerManager.h"
-#include "input/joysticks/interfaces/IButtonMap.h"
 #include "input/joysticks/DriverPrimitive.h"
+#include "input/joysticks/interfaces/IButtonMap.h"
 #include "peripherals/Peripherals.h"
 #include "peripherals/bus/virtual/PeripheralBusAddon.h"
 #include "peripherals/devices/PeripheralJoystick.h"
 #include "threads/SingleLock.h"
-#include "utils/log.h"
 #include "utils/StringUtils.h"
+#include "utils/log.h"
 
 #include <algorithm>
 #include <string.h>
@@ -162,10 +163,10 @@ bool CPeripheralAddon::Register(unsigned int peripheralIndex, const PeripheralPt
     {
       m_peripherals[peripheralIndex] = std::static_pointer_cast<CPeripheralJoystick>(peripheral);
 
-      CLog::Log(LOGNOTICE, "%s - new %s device registered on %s->%s: %s",
-          __FUNCTION__, PeripheralTypeTranslator::TypeToString(peripheral->Type()),
-          PeripheralTypeTranslator::BusTypeToString(PERIPHERAL_BUS_ADDON),
-          peripheral->Location().c_str(), peripheral->DeviceName().c_str());
+      CLog::Log(LOGINFO, "%s - new %s device registered on %s->%s: %s", __FUNCTION__,
+                PeripheralTypeTranslator::TypeToString(peripheral->Type()),
+                PeripheralTypeTranslator::BusTypeToString(PERIPHERAL_BUS_ADDON),
+                peripheral->Location().c_str(), peripheral->DeviceName().c_str());
 
       return true;
     }
@@ -196,7 +197,10 @@ void CPeripheralAddon::UnregisterRemovedDevices(const PeripheralScanResults &res
   {
     auto it = m_peripherals.find(index);
     const PeripheralPtr& peripheral = it->second;
-    CLog::Log(LOGNOTICE, "%s - device removed from %s/%s: %s (%s:%s)", __FUNCTION__, PeripheralTypeTranslator::TypeToString(peripheral->Type()), peripheral->Location().c_str(), peripheral->DeviceName().c_str(), peripheral->VendorIdAsString(), peripheral->ProductIdAsString());
+    CLog::Log(LOGINFO, "%s - device removed from %s/%s: %s (%s:%s)", __FUNCTION__,
+              PeripheralTypeTranslator::TypeToString(peripheral->Type()),
+              peripheral->Location().c_str(), peripheral->DeviceName().c_str(),
+              peripheral->VendorIdAsString(), peripheral->ProductIdAsString());
     UnregisterButtonMap(peripheral.get());
     peripheral->OnDeviceRemoved();
     removedPeripherals.push_back(peripheral);
@@ -312,7 +316,7 @@ void CPeripheralAddon::GetDirectory(const std::string &strPath, CFileItemList &i
     peripheralFile->SetProperty("location", peripheral->Location());
     peripheralFile->SetProperty("class", PeripheralTypeTranslator::TypeToString(peripheral->Type()));
     peripheralFile->SetProperty("version", peripheral->GetVersionInfo());
-    peripheralFile->SetIconImage(peripheral->GetIcon());
+    peripheralFile->SetArt("icon", peripheral->GetIcon());
     items.Add(peripheralFile);
   }
 }
@@ -720,7 +724,7 @@ void CPeripheralAddon::RegisterButtonMap(CPeripheral* device, IButtonMap* button
   CSingleLock lock(m_buttonMapMutex);
 
   UnregisterButtonMap(buttonMap);
-  m_buttonMaps.push_back(std::make_pair(device, buttonMap));
+  m_buttonMaps.emplace_back(device, buttonMap);
 }
 
 void CPeripheralAddon::UnregisterButtonMap(IButtonMap* buttonMap)

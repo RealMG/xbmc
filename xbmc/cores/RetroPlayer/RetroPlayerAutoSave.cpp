@@ -7,9 +7,10 @@
  */
 
 #include "RetroPlayerAutoSave.h"
+
+#include "URL.h"
 #include "games/GameSettings.h"
 #include "utils/log.h"
-#include "URL.h"
 
 using namespace KODI;
 using namespace RETRO;
@@ -40,7 +41,7 @@ void CRetroPlayerAutoSave::Process()
 
   while (!m_bStop)
   {
-    Sleep(AUTOSAVE_DURATION_SECS * 1000);
+    CThread::Sleep(AUTOSAVE_DURATION_SECS * 1000);
 
     if (m_bStop)
       break;

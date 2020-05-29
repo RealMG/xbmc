@@ -49,6 +49,7 @@
       <x>ContextMenu</x>
       <y>FullScreen</y>
       <start>ActivateWindow(PlayerControls)</start>
+      <back>ActivateWindow(Home)</back>
       <guide>ActivateWindow(Home)</guide>
       <up>Up</up>
       <down>Down</down>
@@ -96,7 +97,7 @@
       <x>OSD</x>
       <y>FullScreen</y>
       <start>Info</start>
-      <back>OSD</back>
+      <back>FullScreen</back>
       <guide>OSD</guide>
       <up>ChapterOrBigStepForward</up>
       <down>ChapterOrBigStepBack</down>
@@ -229,7 +230,7 @@
     <joystick profile="game.controller.default">
       <a>Pause</a>
       <b>Stop</b>
-      <x>ActivateWindow(AddonSettings)</x>
+      <x>Addon.Default.OpenSettings(xbmc.player.musicviz)</x>
       <y>ActivateWindow(VisualisationPresetList)</y>
       <start>Info</start>
       <rightthumb>ActivateWindow(MusicOSD)</rightthumb>

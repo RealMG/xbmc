@@ -8,9 +8,8 @@
 
 #pragma once
 
-#include "swighelper.h"
-
 #include "guilib/GUIEditControl.h"
+#include "swighelper.h"
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
 namespace XBMCAddon
@@ -85,6 +84,7 @@ namespace XBMCAddon
     ///
     /// @return                       Screen height
     ///
+    ///
     ///-------------------------------------------------------------------------
     /// @python_v18 New function added.
     ///
@@ -101,6 +101,7 @@ namespace XBMCAddon
     /// Returns the width of this screen.
     ///
     /// @return                       Screen width
+    ///
     ///
     ///-------------------------------------------------------------------------
     /// @python_v18 New function added.
@@ -128,6 +129,7 @@ namespace XBMCAddon
     SWIG_CONSTANT2(int, INPUT_TYPE_PASSWORD, CGUIEditControl::INPUT_TYPE_PASSWORD);
     SWIG_CONSTANT2(int, INPUT_TYPE_PASSWORD_MD5, CGUIEditControl::INPUT_TYPE_PASSWORD_MD5);
     SWIG_CONSTANT2(int, INPUT_TYPE_SECONDS, CGUIEditControl::INPUT_TYPE_SECONDS);
+    SWIG_CONSTANT2(int, INPUT_TYPE_PASSWORD_NUMBER_VERIFY_NEW, CGUIEditControl::INPUT_TYPE_PASSWORD_NUMBER_VERIFY_NEW);
 
     SWIG_CONSTANT_FROM_GETTER(const char*, NOTIFICATION_INFO);
     SWIG_CONSTANT_FROM_GETTER(const char*, NOTIFICATION_WARNING);

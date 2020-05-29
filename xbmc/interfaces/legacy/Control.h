@@ -8,17 +8,16 @@
 
 #pragma once
 
-#include <vector>
-
+#include "Alternative.h"
+#include "ListItem.h"
+#include "Tuple.h"
 #include "guilib/GUIControl.h"
 #include "guilib/GUIFont.h"
 #include "input/Key.h"
+#include "swighelper.h"
 #include "utils/Color.h"
 
-#include "Alternative.h"
-#include "Tuple.h"
-#include "ListItem.h"
-#include "swighelper.h"
+#include <vector>
 
 
 // hardcoded offsets for button controls (and controls that use button controls)
@@ -860,7 +859,7 @@ namespace XBMCAddon
       bool bHasPath = false;
       int iAngle = 0;
 
-      SWIGHIDDENVIRTUAL CGUIControl* Create() override;
+      CGUIControl* Create() override;
 
 #endif
     };
@@ -903,7 +902,6 @@ namespace XBMCAddon
     /// | XBFONT_JUSTIFIED  | 0x00000010 | Justify text
     /// @param focusTexture         [opt] string - filename for focus texture.
     /// @param noFocusTexture       [opt] string - filename for no focus texture.
-    /// @param isPassword           [opt] bool - True=mask text value with `****`(deprecated, use setType()).
     ///
     /// @note You can use the above as keywords for arguments and skip certain
     /// optional arguments.\n
@@ -915,6 +913,7 @@ namespace XBMCAddon
     ///
     ///-------------------------------------------------------------------------
     /// @python_v18 Deprecated **isPassword**
+    /// @python_v19 Removed **isPassword**
     ///
     /// **Example:**
     /// ~~~~~~~~~~~~~{.py}
@@ -930,7 +929,7 @@ namespace XBMCAddon
                   const char* font = NULL, const char* textColor = NULL,
                   const char* disabledColor = NULL,
                   long _alignment = XBFONT_LEFT, const char* focusTexture = NULL,
-                  const char* noFocusTexture = NULL, bool isPassword = false);
+                  const char* noFocusTexture = NULL);
 
 
       // setLabel() Method
@@ -1057,9 +1056,8 @@ namespace XBMCAddon
       UTILS::Color textColor;
       UTILS::Color disabledColor;
       uint32_t align;
-      bool bIsPassword = false;
 
-      SWIGHIDDENVIRTUAL CGUIControl* Create() override;
+      CGUIControl* Create() override;
 #endif
 
       // setType() Method
@@ -1070,22 +1068,24 @@ namespace XBMCAddon
       /// Sets the type of this edit control.
       ///
       /// @param type              integer - type of the edit control.
-      /// | Param                            | Definition                                  |
-      /// |----------------------------------|:--------------------------------------------|
-      /// | xbmcgui.INPUT_TYPE_TEXT          | (standard keyboard)
-      /// | xbmcgui.INPUT_TYPE_NUMBER        | (format: #)
-      /// | xbmcgui.INPUT_TYPE_DATE          | (format: DD/MM/YYYY)
-      /// | xbmcgui.INPUT_TYPE_TIME          | (format: HH:MM)
-      /// | xbmcgui.INPUT_TYPE_IPADDRESS     | (format: #.#.#.#)
-      /// | xbmcgui.INPUT_TYPE_PASSWORD      | (input is masked)
-      /// | xbmcgui.INPUT_TYPE_PASSWORD_MD5  | (input is masked, return md5 hash of input)
-      /// | xbmcgui.INPUT_TYPE_SECONDS       | (format: SS or MM:SS or HH:MM:SS or MM min)
+      /// | Param                                         | Definition                                  |
+      /// |-----------------------------------------------|:--------------------------------------------|
+      /// | xbmcgui.INPUT_TYPE_TEXT                       | (standard keyboard)
+      /// | xbmcgui.INPUT_TYPE_NUMBER                     | (format: #)
+      /// | xbmcgui.INPUT_TYPE_DATE                       | (format: DD/MM/YYYY)
+      /// | xbmcgui.INPUT_TYPE_TIME                       | (format: HH:MM)
+      /// | xbmcgui.INPUT_TYPE_IPADDRESS                  | (format: #.#.#.#)
+      /// | xbmcgui.INPUT_TYPE_PASSWORD                   | (input is masked)
+      /// | xbmcgui.INPUT_TYPE_PASSWORD_MD5               | (input is masked, return md5 hash of input)
+      /// | xbmcgui.INPUT_TYPE_SECONDS                    | (format: SS or MM:SS or HH:MM:SS or MM min)
+      /// | xbmcgui.INPUT_TYPE_PASSWORD_NUMBER_VERIFY_NEW | (numeric input is masked)
       /// @param heading           string or unicode - heading that will be used for to numeric or
       ///                                              keyboard dialog when the edit control is clicked.
       ///
       ///
       ///-----------------------------------------------------------------------
       /// @python_v18 New function added.
+      /// @python_v19 New option added to mask numeric input.
       ///
       /// **Example:**
       /// ~~~~~~~~~~~~~{.py}
@@ -1282,13 +1282,39 @@ namespace XBMCAddon
       ///-----------------------------------------------------------------------
       /// Clear all ListItems in this control list.
       ///
+      /// @warning Calling `reset()` will destroy any `ListItem` objects in the
+      ///          `ControlList` if not hold by any other class. Make sure you
+      ///          you don't call `addItems()` with the previous `ListItem` references
+      ///          after calling `reset()`. If you need to preserve the `ListItem` objects after
+      ///          `reset()` make sure you store them as members of your `WindowXML` class (see examples).
+      ///
       ///
       ///-----------------------------------------------------------------------
       ///
-      /// **Example:**
+      /// **Examples:**
       /// ~~~~~~~~~~~~~{.py}
       /// ...
       /// cList.reset()
+      /// ...
+      /// ~~~~~~~~~~~~~
+      ///
+      /// The below example shows you how you can reset the `ControlList` but this time avoiding `ListItem` object
+      /// destruction. The example assumes `self` as a `WindowXMLDialog` instance containing a `ControlList`
+      /// with id = 800. The class preserves the `ListItem` objects in a class member variable.
+      ///
+      /// ~~~~~~~~~~~~~{.py}
+      /// ...
+      /// # Get all the ListItem objects in the control
+      /// self.list_control = self.getControl(800) # ControlList object
+      /// self.listitems = [self.list_control.getListItem(item) for item in range(0, self.list_control.size())]
+      /// # Reset the ControlList control
+      /// self.list_control.reset()
+      /// #
+      /// # do something with your ListItem objects here (e.g. sorting.)
+      /// # ...
+      /// #
+      /// # Add them again to the ControlList
+      /// self.list_control.addItems(self.listitems)
       /// ...
       /// ~~~~~~~~~~~~~
       ///
@@ -1603,7 +1629,7 @@ namespace XBMCAddon
 #ifndef SWIG
       void sendLabelBind(int tail);
 
-      SWIGHIDDENVIRTUAL bool canAcceptMessages(int actionId) override
+      bool canAcceptMessages(int actionId) override
       { return ((actionId == ACTION_SELECT_ITEM) | (actionId == ACTION_MOUSE_LEFT_CLICK)); }
 
       // This is called from AddonWindow.cpp but shouldn't be available
@@ -1628,7 +1654,7 @@ namespace XBMCAddon
       int itemTextOffsetY = 0;
       uint32_t alignmentY;
 
-      SWIGHIDDENVIRTUAL CGUIControl* Create() override;
+      CGUIControl* Create() override;
 #endif
     };
     /// @}
@@ -1773,7 +1799,7 @@ namespace XBMCAddon
       std::vector<std::string> vecLabels;
       uint32_t align;
 
-      SWIGHIDDENVIRTUAL CGUIControl* Create() override;
+      CGUIControl* Create() override;
 
       ControlFadeLabel() = default;
 #endif
@@ -1816,6 +1842,21 @@ namespace XBMCAddon
     /// ...
     /// ~~~~~~~~~~~~~
     ///
+    /// As stated above, the GUI control is only created once added to a window. The example
+    /// below shows how a ControlTextBox can be created, added to the current window and
+    /// have some of its properties changed.
+    ///
+    /// /// **Extended example:**
+    /// ~~~~~~~~~~~~~{.py}
+    /// ...
+    /// textbox = xbmcgui.ControlTextBox(100, 250, 300, 300, textColor='0xFFFFFFFF')
+    /// window = xbmcgui.Window(xbmcgui.getCurrentWindowId())
+    /// window.addControl(textbox)
+    /// textbox.setText("My Text Box")
+    /// textbox.scroll()
+    /// ...
+    /// ~~~~~~~~~~~~~
+    ///
     class ControlTextBox : public Control
     {
     public:
@@ -1830,9 +1871,11 @@ namespace XBMCAddon
       /// @brief \python_func{ setText(text) }
       ///-----------------------------------------------------------------------
       /// Set's the text for this textbox.
+      /// \anchor python_xbmcgui_control_textbox_settext
       ///
-      /// @param text                 string or unicode - text string.
+      /// @param text                 string  - text string.
       ///
+      /// @note setText only has effect after the control is added to a window
       ///
       ///--------------------------------------------------------------------------
       ///
@@ -1859,6 +1902,9 @@ namespace XBMCAddon
       ///
       /// @return                       To get text from box
       ///
+      /// @note getText only works after you add the control to a window
+      /// and set the control text (using \ref python_xbmcgui_control_textbox_settext
+      /// "setText").
       ///
       ///-----------------------------------------------------------------------
       ///
@@ -1883,6 +1929,7 @@ namespace XBMCAddon
       ///-----------------------------------------------------------------------
       /// Clear's this textbox.
       ///
+      /// @note reset only works after you add the control to a window.
       ///
       ///-----------------------------------------------------------------------
       ///
@@ -1909,6 +1956,7 @@ namespace XBMCAddon
       ///
       /// @param id                 integer - position to scroll to.
       ///
+      /// @note scroll() only works after the control is added to a window.
       ///
       ///-----------------------------------------------------------------------
       ///
@@ -1937,6 +1985,7 @@ namespace XBMCAddon
       /// @param time                  integer - Scroll time (in ms)
       /// @param repeat                integer - Repeat time
       ///
+      /// @note autoScroll only works after you add the control to a window.
       ///
       ///-----------------------------------------------------------------------
       /// @python_v15 New function added.
@@ -1957,7 +2006,7 @@ namespace XBMCAddon
       std::string strFont;
       UTILS::Color textColor;
 
-      SWIGHIDDENVIRTUAL CGUIControl* Create() override;
+      CGUIControl* Create() override;
 
       ControlTextBox() = default;
 #endif
@@ -2076,7 +2125,7 @@ namespace XBMCAddon
       int aspectRatio = 0;
       UTILS::Color colorDiffuse;
 
-      SWIGHIDDENVIRTUAL CGUIControl* Create() override;
+      CGUIControl* Create() override;
 #endif
     };
     /// @}
@@ -2219,7 +2268,7 @@ namespace XBMCAddon
       int aspectRatio = 0;
       UTILS::Color colorDiffuse;
 
-      SWIGHIDDENVIRTUAL CGUIControl* Create() override;
+      CGUIControl* Create() override;
       ControlProgress() = default;
 #endif
     };
@@ -2427,7 +2476,7 @@ namespace XBMCAddon
 #endif
 
 #ifndef SWIG
-      SWIGHIDDENVIRTUAL bool canAcceptMessages(int actionId) override { return true; }
+      bool canAcceptMessages(int actionId) override { return true; }
 
       int textOffsetX = 0;
       int textOffsetY = 0;
@@ -2443,7 +2492,7 @@ namespace XBMCAddon
       std::string strTextureFocus;
       std::string strTextureNoFocus;
 
-      SWIGHIDDENVIRTUAL CGUIControl* Create() override;
+      CGUIControl* Create() override;
 
       ControlButton() = default;
 #endif
@@ -2493,7 +2542,7 @@ namespace XBMCAddon
       ControlGroup(long x, long y, long width, long height);
 
 #ifndef SWIG
-      SWIGHIDDENVIRTUAL CGUIControl* Create() override;
+      CGUIControl* Create() override;
 
       inline ControlGroup() = default;
 #endif
@@ -2508,7 +2557,7 @@ namespace XBMCAddon
     /// @brief **For control a radio button (as used for on/off settings).**
     ///
     /// \python_class{ ControlRadioButton(x, y, width, height, label[, focusOnTexture, noFocusOnTexture,
-    ///                   focusOffTexture, noFocusOffTexture, focusTexture, noFocusTexture,
+    ///                   focusOffTexture, noFocusOffTexture,
     ///                   textOffsetX, textOffsetY, alignment, font, textColor, disabledColor]) }
     ///
     /// The radio button control is used for creating push button on/off
@@ -2532,12 +2581,6 @@ namespace XBMCAddon
     ///                             focused texture.
     /// @param noFocusOffTexture    [opt] string - filename for radio OFF
     ///                             not focused texture.
-    /// @param focusTexture         [opt] string - filename for radio ON
-    ///                             texture (deprecated, use focusOnTexture
-    ///                             and noFocusOnTexture).
-    /// @param noFocusTexture       [opt] string - filename for radio OFF
-    ///                             texture (deprecated, use focusOffTexture
-    ///                             and noFocusOffTexture).
     /// @param textOffsetX          [opt] integer - horizontal text offset
     /// @param textOffsetY          [opt] integer - vertical text offset
     /// @param alignment            [opt] integer - alignment of label
@@ -2568,7 +2611,8 @@ namespace XBMCAddon
     ///
     ///--------------------------------------------------------------------------
     /// @python_v13 New function added.
-    /// @python_v16 Deprecated **focusTexture** and **noFocusTexture**. Use **focusOnTexture** and **noFocusOnTexture**.
+    /// @python_v18 Deprecated **focusTexture** and **noFocusTexture**. Use **focusOnTexture** and **noFocusOnTexture**.
+    /// @python_v19 Removed **focusTexture** and **noFocusTexture**.
     ///
     /// **Example:**
     /// ~~~~~~~~~~~~~{.py}
@@ -2583,7 +2627,6 @@ namespace XBMCAddon
       ControlRadioButton(long x, long y, long width, long height, const String& label,
                          const char* focusOnTexture = NULL, const char* noFocusOnTexture = NULL,
                          const char* focusOffTexture = NULL, const char* noFocusOffTexture = NULL,
-                         const char* focusTexture = NULL, const char* noFocusTexture = NULL,
                          long textOffsetX = CONTROL_TEXT_OFFSET_X,
                          long textOffsetY = CONTROL_TEXT_OFFSET_Y,
                          long _alignment = (XBFONT_LEFT | XBFONT_CENTER_Y),
@@ -2730,7 +2773,7 @@ namespace XBMCAddon
 #endif
 
 #ifndef SWIG
-      SWIGHIDDENVIRTUAL bool canAcceptMessages(int actionId) override { return true; }
+      bool canAcceptMessages(int actionId) override { return true; }
 
       std::string strFont;
       std::string strText;
@@ -2751,7 +2794,7 @@ namespace XBMCAddon
       UTILS::Color shadowColor;
       UTILS::Color focusedColor;
 
-      SWIGHIDDENVIRTUAL CGUIControl* Create() override;
+      CGUIControl* Create() override;
 
       ControlRadioButton() = default;
 #endif
@@ -2966,7 +3009,7 @@ namespace XBMCAddon
       std::string strTextureFoc;
       int iOrientation;
 
-      SWIGHIDDENVIRTUAL CGUIControl* Create() override;
+      CGUIControl* Create() override;
 
       inline ControlSlider() = default;
 #endif

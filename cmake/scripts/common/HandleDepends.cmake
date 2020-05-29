@@ -68,8 +68,8 @@ function(add_addon_depends addon searchpath)
                        -DCORE_SYSTEM_NAME=${CORE_SYSTEM_NAME}
                        -DENABLE_STATIC=1
                        -DBUILD_SHARED_LIBS=0)
-        # windows store args
-        if (CMAKE_SYSTEM_NAME STREQUAL WindowsStore)
+        # windows args
+        if (CMAKE_SYSTEM_NAME STREQUAL WindowsStore OR CMAKE_SYSTEM_NAME STREQUAL Windows)
           list(APPEND BUILD_ARGS -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
                                  -DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION})
         endif()
@@ -78,14 +78,27 @@ function(add_addon_depends addon searchpath)
           # make sure we create strings, not lists
           set(TMP_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_DEFINES}")
           set(TMP_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_DEFINES}")
+          set(TMP_EXE_LINKER_FLAGS "-L${OUTPUT_DIR}/lib ${CMAKE_EXE_LINKER_FLAGS}")
           list(APPEND BUILD_ARGS -DCMAKE_C_FLAGS=${TMP_C_FLAGS}
-                                 -DCMAKE_CXX_FLAGS=${TMP_CXX_FLAGS})
+                                 -DCMAKE_CXX_FLAGS=${TMP_CXX_FLAGS}
+                                 -DCMAKE_EXE_LINKER_FLAGS=${TMP_EXE_LINKER_FLAGS})
         endif()
 
         if(CMAKE_TOOLCHAIN_FILE)
           list(APPEND BUILD_ARGS -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
           message("toolchain specified")
           message(${BUILD_ARGS})
+        endif()
+
+        # used for addons where need special folders to store there content (if
+        # not set the addon define it byself).
+        # e.g. Google Chromium addon where his git bring:
+        # - "unable to create file" ... "Filename too long"
+        # see also WARNING by Windows on: https://bitbucket.org/chromiumembedded/cef/wiki/MasterBuildQuickStart
+        if(THIRD_PARTY_PATH)
+          message(STATUS "Third party lib path specified")
+          message(STATUS ${THIRD_PARTY_PATH})
+          list(APPEND BUILD_ARGS -DTHIRD_PARTY_PATH=${THIRD_PARTY_PATH})
         endif()
 
         set(PATCH_COMMAND)
@@ -215,7 +228,6 @@ function(add_addon_depends addon searchpath)
                                     -DOUTPUT_DIR=${OUTPUT_DIR}
                                     -DCMAKE_PREFIX_PATH=${OUTPUT_DIR}
                                     -DCMAKE_INSTALL_PREFIX=${OUTPUT_DIR}
-                                    -DCMAKE_EXE_LINKER_FLAGS=-L${OUTPUT_DIR}/lib
                                     -DCMAKE_INCLUDE_PATH=${OUTPUT_DIR}/include)
             endif()
 

@@ -6,13 +6,14 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "ServiceBroker.h"
 #include "Shader.h"
+
+#include "ServiceBroker.h"
 #include "filesystem/File.h"
-#include "utils/log.h"
+#include "rendering/RenderSystem.h"
 #include "utils/GLUtils.h"
 #include "utils/StringUtils.h"
-#include "rendering/RenderSystem.h"
+#include "utils/log.h"
 
 #ifdef HAS_GLES
 #define GLchar char
@@ -190,7 +191,7 @@ bool CGLSLPixelShader::Compile()
   // Pixel shaders are not mandatory.
   if (m_source.length()==0)
   {
-    CLog::Log(LOGNOTICE, "GL: No pixel shader, fixed pipeline in use");
+    CLog::Log(LOGINFO, "GL: No pixel shader, fixed pipeline in use");
     return true;
   }
 
